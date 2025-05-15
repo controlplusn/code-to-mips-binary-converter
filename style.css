@@ -1,0 +1,200 @@
+/* General Body Styles */
+body {
+    font-family: Arial, sans-serif;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f4;
+    color: #333;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh; /* Ensure footer stays at bottom */
+}
+
+/* Header Styles */
+header {
+    background: #333;
+    color: #fff;
+    padding: 1rem 0;
+    text-align: center;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 2rem;
+}
+
+/* Main Content Area */
+main {
+    flex-grow: 1; /* Allow main to grow and push footer down */
+    padding: 20px;
+    max-width: 1200px;
+    margin: 20px auto;
+    background-color: #fff;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    border-radius: 8px;
+}
+
+/* Section Styling */
+section {
+    margin-bottom: 20px;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+.controls-section {
+    display: flex;
+    flex-wrap: wrap; /* Allow items to wrap on smaller screens */
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px; /* Spacing between items */
+}
+
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Form Elements Styling */
+label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+select,
+textarea,
+button {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+select {
+    min-width: 200px; /* Ensure select is not too small */
+}
+
+textarea {
+    width: 100%;
+    box-sizing: border-box; /* Include padding and border in element's total width and height */
+    font-family: 'Courier New', Courier, monospace; /* Monospaced font for code */
+    background-color: #f9f9f9;
+}
+
+button {
+    background-color: #5cb85c;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+button:hover {
+    background-color: #4cae4c;
+}
+
+#convert-btn {
+    background-color: #007bff;
+}
+
+#convert-btn:hover {
+    background-color: #0056b3;
+}
+
+.copy-btn {
+    background-color: #6c757d;
+    font-size: 0.8rem;
+    padding: 5px 10px;
+}
+
+.copy-btn:hover {
+    background-color: #5a6268;
+}
+
+/* Output Section Styling */
+.output-section {
+    display: flex;
+    flex-direction: column; /* Stack output areas vertically on small screens */
+    gap: 20px;
+}
+
+.output-area {
+    flex: 1; /* Allow output areas to share space */
+    background-color: #e9ecef;
+    padding: 15px;
+    border-radius: 5px;
+}
+
+.output-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.output-header label {
+    margin-bottom: 0; /* Remove bottom margin for label in header */
+}
+
+pre {
+    background: #2d2d2d; /* Dark background for code blocks */
+    color: #f8f8f2;     /* Light text for code blocks */
+    padding: 15px;
+    border-radius: 4px;
+    overflow-x: auto;   /* Allow horizontal scrolling for long lines */
+    white-space: pre-wrap; /* Wrap long lines */
+    word-wrap: break-word; /* Break words if necessary */
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.9rem;
+}
+
+code {
+    display: block; /* Ensure code block takes full width of pre */
+}
+
+/* Status Message Styling */
+.status-section {
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+}
+
+#status-message {
+    text-align: center;
+    font-weight: bold;
+}
+
+/* Footer Styles */
+footer {
+    text-align: center;
+    padding: 1rem 0;
+    background: #333;
+    color: #fff;
+    margin-top: auto; /* Pushes footer to the bottom */
+}
+
+/* Responsive Design Adjustments */
+@media (min-width: 768px) {
+    .output-section {
+        flex-direction: row; /* Arrange output areas side-by-side on larger screens */
+    }
+}
+
+@media (max-width: 600px) {
+    .controls-section {
+        flex-direction: column;
+        align-items: stretch; /* Make control items take full width */
+    }
+
+    select,
+    #convert-btn {
+        width: 100%;
+    }
+
+    header h1 {
+        font-size: 1.5rem;
+    }
+}
+
