@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code to MIPS & Binary Converter</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Prism CSS for syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css">
+</head>
+<body>
+    <header>
+        <h1>Code to MIPS & Binary Converter</h1>
+    </header>
+
+    <main>
+        <section class="controls-section">
+            <div class="control-group">
+                <label for="language-select">Select Input Language:</label>
+                <select id="language-select" name="language-select">
+                    <option value="" disabled selected>--Please choose an option--</option>
+                    <option value="c_cpp">C/C++ (Simplified)</option>
+                    <option value="python">Python (Simplified)</option>
+                    <option value="java">Java (Simplified)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="example-select">Load Example:</label>
+                <select id="example-select" name="example-select">
+                    <option value="" disabled selected>--Select an example--</option>
+                    <!-- Examples will be populated by JS -->
+                </select>
+            </div>
+            <button id="convert-btn">Convert to MIPS & Binary</button>
+        </section>
+
+        <section class="input-section">
+            <label for="code-input">Enter Your Code Here:</label>
+            <!-- For Prism.js, the textarea might be hidden and a pre/code block used for display -->
+            <textarea id="code-input" class="language-none" rows="15" placeholder="Paste your simplified C/C++, Python, or Java code here..."></textarea>
+        </section>
+
+        <section class="status-section">
+            <p id="status-message"></p>
+        </section>
+
+        <section class="output-section">
+            <div class="output-area">
+                <div class="output-header">
+                    <label for="mips-output">MIPS Assembly Output:</label>
+                    <button class="copy-btn" data-target="mips-output">Copy</button>
+                </div>
+                <pre><code id="mips-output" class="language-mips">; MIPS code will appear here...</code></pre>
+            </div>
+            <div class="output-area">
+                <div class="output-header">
+                    <label for="binary-output">Binary (Machine Code) Output:</label>
+                    <button class="copy-btn" data-target="binary-output">Copy</button>
+                </div>
+                <pre><code id="binary-output" class="language-none">// Binary code will appear here...</code></pre>
+                <!-- Binary might not have a standard Prism language, so 'none' or custom -->
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Computer Architecture Final Project</p>
+    </footer>
+
+    <!-- Prism JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    <!-- Must be after Prism core -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-java.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-mips.min.js"></script>
+
+    <script src="script.js"></script>
+</body>
+</html>
