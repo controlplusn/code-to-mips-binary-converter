@@ -1,33 +1,36 @@
 # Dependency directory
-node_modules/              # Ignore installed packages :contentReference[oaicite:5]{index=5}
+node_modules/
+
+# npm cache folder (optional)
+.npm/
 
 # Logs
 logs/
 *.log
-npm-debug.log*             # Debug logs :contentReference[oaicite:6]{index=6}
-
-# Build outputs
-dist/                      # Build artifacts
-build/
-
-# Environment files
-.env                       # Secrets and config :contentReference[oaicite:7]{index=7}
-
-# IDE/editor configs
-.vscode/                   # VS Code workspace settings :contentReference[oaicite:8]{index=8}
-.idea/                     # IntelliJ/PhpStorm
-
-# System files
-.DS_Store                  # macOS metadata
-Thumbs.db                  # Windows Explorer metadata
-
-# Miscellaneous
-*.swp                      # Vim swap files
-
-# Optional npm log files
+npm-debug.log*
 yarn-error.log
 pnpm-debug.log
 
-# OS-specific
+# Build outputs
+dist/
+build/
+
+# Environment files
+.env
+
+# IDE/editor configs
+.vscode/
+.idea/
+
+# System files
+.DS_Store
+Thumbs.db
 ehthumbs.db
 Icon?
+
+# Vim swap files
+*.swp
+
+# Optional lock files (if you use yarn or pnpm)
+yarn.lock
+pnpm-lock.yaml
