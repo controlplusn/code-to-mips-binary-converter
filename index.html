@@ -11,63 +11,129 @@
 </head>
 
 <body>
+    <div class="glow"></div>
+    <div class="glow right"></div>
     <header>
         <h1>Code to MIPS & Binary Converter</h1>
     </header>
 
     <main>
         <section class="controls-section">
-            <div class="control-group">
-                <label for="language-select">Select Input Language:</label>
-                <select id="language-select" name="language-select">
-                    <option value="" disabled selected>--Please choose an option--</option>
-                    <option value="c_cpp">C/C++ (Simplified)</option>
-                    <option value="python">Python (Simplified)</option>
-                    <option value="java">Java (Simplified)</option>
-                </select>
+            <div class="control-group-wrapper">
+                <div class="control-group">
+                    <label for="language-select">Select Input Language:</label>
+                    <select id="language-select" name="language-select">
+                        <option value="" disabled selected>--Please choose an option--</option>
+                        <option value="c_cpp">C/C++ (Simplified)</option>
+                        <option value="python">Python (Simplified)</option>
+                        <option value="java">Java (Simplified)</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="example-select">Load Example:</label>
+                    <select id="example-select" name="example-select">
+                        <option value="" disabled selected>--Select an example--</option>
+                        <!-- Examples will be populated by JS -->
+                    </select>
+                </div>
             </div>
-            <div class="control-group">
-                <label for="example-select">Load Example:</label>
-                <select id="example-select" name="example-select">
-                    <option value="" disabled selected>--Select an example--</option>
-                    <!-- Examples will be populated by JS -->
-                </select>
-            </div>
-            <button id="convert-btn">Convert to MIPS & Binary</button>
+            <button id="convert-btn" class="convert-btn">Convert to MIPS & Binary</button>
+
+            <p class="status-message" id="status-message"></p>
         </section>
 
         <section class="input-section">
-            <label for="code-input">Enter Your Code Here:</label>
             <!-- For Prism.js, the textarea might be hidden and a pre/code block used for display -->
-            <textarea id="code-input" class="language-none" rows="15"
-                placeholder="Paste your simplified C/C++, Python, or Java code here..."></textarea>
+            <textarea id="code-input" class="language-none" rows="15" placeholder="Enter your code here..."></textarea>
         </section>
 
-        <section class="status-section">
-            <p id="status-message"></p>
-        </section>
-
-        <section class="output-section">
-            <div class="output-area">
+        <section id="output-section" class="output-section">
+            <div class="output-area binary">
+                <div class="output-header">
+                    <label for="binary-output">Binary (Machine Code) Output:</label>
+                    <button class="copy-btn" data-target="binary-output">Copy</button>
+                </div>
+                <pre><code id="binary-output" class="language-none">// Binary code will appear here...</code></pre>
+                <!-- Binary might not have a standard Prism language, so '' or custom -->
+            </div>
+            <div class="output-area mips">
                 <div class="output-header">
                     <label for="mips-output">MIPS Assembly Output:</label>
                     <button class="copy-btn" data-target="mips-output">Copy</button>
                 </div>
                 <pre><code id="mips-output" class="language-mips">; MIPS code will appear here...</code></pre>
             </div>
-            <div class="output-area">
-                <div class="output-header">
-                    <label for="binary-output">Binary (Machine Code) Output:</label>
-                    <button class="copy-btn" data-target="binary-output">Copy</button>
-                </div>
-                <pre><code id="binary-output" class="language-none">// Binary code will appear here...</code></pre>
-                <!-- Binary might not have a standard Prism language, so 'none' or custom -->
-            </div>
         </section>
     </main>
 
     <footer>
-        <p>Computer Architecture Final Project</p>
+        <h2 class="footer-title">Meet the team</h2>
+        <div class="profile-wrapper">
+            <div class="profile-icon">
+                <img src="images/ziac.png" alt="">
+            </div>
+            <div class="profile-name">
+                Abril, Danielle Ziac R.
+            </div>
+            <div class="profile-motto">
+                <p>"Ipinanganak ako ng walang kakambal kaya mahalin mo ako ng walang karibal."</p>
+            </div>
+        </div>
+        <div class="profile-wrapper">
+            <div class="profile-icon">
+                <img src="images/timothy.png" alt="">
+            </div>
+            <div class="profile-name">
+                Alimagno, Timothy Dave C.
+            </div>
+            <div class="profile-motto">
+                <p>"Bakit ba kayo nagagalit sa mga tamad, eh wala nga silang ginagawa?"</p>
+            </div>
+        </div>
+        <div class="profile-wrapper">
+            <div class="profile-icon">
+                <img src="images/carle.png" alt="">
+            </div>
+            <div class="profile-name">
+                Medina, Carle Francis L.
+            </div>
+            <div class="profile-motto">
+                <p>"Luto na ang sinaing, pwede na akong kainin."</p>
+            </div>
+        </div>
+        <div class="profile-wrapper">
+            <div class="profile-icon">
+                <img src="images/hersey.png" alt="">
+            </div>
+            <div class="profile-name">
+                Odasco, Hersey Anne
+            </div>
+            <div class="profile-motto">
+                <p>"Isa, dalawa, tatlo..."</p>
+            </div>
+        </div>
+        <div class="profile-wrapper">
+            <div class="profile-icon">
+                <img src="images/dorothy.png" alt="">
+            </div>
+            <div class="profile-name">
+                Salva, Dorothy
+            </div>
+            <div class="profile-motto">
+                <p>"Kung kaya ng iba, pagawa mo sa kanila."</p>
+            </div>
+        </div>
+        <div class="profile-wrapper">
+            <div class="profile-icon">
+                <img src="images/vex.png" alt="">
+            </div>
+            <div class="profile-name">
+                Sumang, Vex Ivan
+            </div>
+            <div class="profile-motto">
+                <p>"Baby, handa akong maging siomai kapag tinotoyo ka..."</p>
+            </div>
+        </div>
     </footer>
 
     <!-- Prism JS -->
