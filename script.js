@@ -162,278 +162,174 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 500);
     });
 
+
     // --- Language Specific Parsers and MIPS Generators ---
-    function parseAndGenerateMips_C_CPP(code) {
-        let textSegment = ".text\n.globl main\nmain:\n";
-        const dataSegment = { "newline": ".asciiz \"\\n\"" };
-        let varCounter = 0; 
-
-        const lines = code.split("\n").map(line => line.trim()).filter(line => line && !line.startsWith("//"));
-
-        lines.forEach(line => {
-            let match;
-            match = line.match(/^int\s+([a-zA-Z_][a-zA-Z0-9_]*);/);
-            if (match) {
-                const varName = match[1];
-                if (dataSegment[varName]) throw new Error(`C/C++: Variable '${varName}' already declared.`);
-                dataSegment[varName] = ".word 0";
-                textSegment += `    # int ${varName}; (declared in .data)\n`;
-                return;
-            }
-
-            match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z0-9_]+)\s*\+\s*([a-zA-Z0-9_]+);/);
-            if (match) {
-                const destVar = match[1];
-                const operand1 = match[2];
-                const operand2 = match[3];
-                if (!dataSegment.hasOwnProperty(destVar)) throw new Error(`C/C++: Variable '${destVar}' not declared before assignment.`);
-                if (!dataSegment.hasOwnProperty(operand1)) throw new Error(`C/C++: Variable '${operand1}' not declared before use.`);
-                if (!/^\d+$/.test(operand2) && !dataSegment.hasOwnProperty(operand2)) throw new Error(`C/C++: Variable or immediate '${operand2}' not declared before use.`);
-
-                textSegment += `    lw $t1, ${operand1}      # Load ${operand1} into $t1\n`;
-                if (/^\d+$/.test(operand2)) {
-                    textSegment += `    addi $t0, $t1, ${operand2}   # Calculate ${operand1} + ${operand2} (immediate) and store in $t0\n`;
-                } else {
-                    textSegment += `    lw $t2, ${operand2}      # Load ${operand2} into $t2\n`;
-                    textSegment += `    add $t0, $t1, $t2      # Calculate ${operand1} + ${operand2} and store in $t0\n`;
-                }
-                textSegment += `    sw $t0, ${destVar}      # Store the result into ${destVar}\n`;
-                return;
-            }
-
-            match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z0-9_]+)\s*\-\s*([a-zA-Z0-9_]+);/);
-            if (match) {
-                const destVar = match[1];
-                const operand1 = match[2];
-                const operand2 = match[3];
-                if (!dataSegment.hasOwnProperty(destVar)) throw new Error(`C/C++: Variable '${destVar}' not declared before assignment.`);
-                if (!dataSegment.hasOwnProperty(operand1)) throw new Error(`C/C++: Variable '${operand1}' not declared before use.`);
-                if (!/^\d+$/.test(operand2) && !dataSegment.hasOwnProperty(operand2)) throw new Error(`C/C++: Variable or immediate '${operand2}' not declared before use.`);
-
-                textSegment += `    lw $t1, ${operand1}      # Load ${operand1} into $t1\n`;
-                if (/^\d+$/.test(operand2)) {
-                    textSegment += `    addi $t0, $t1, -${operand2}  # Calculate ${operand1} - ${operand2} (immediate) and store in $t0\n`;
-                } else {
-                    textSegment += `    lw $t2, ${operand2}      # Load ${operand2} into $t2\n`;
-                    textSegment += `    sub $t0, $t1, $t2      # Calculate ${operand1} - ${operand2} and store in $t0\n`;
-                }
-                textSegment += `    sw $t0, ${destVar}      # Store the result into ${destVar}\n`;
-                return;
-            }
-
-
-            match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z0-9_]+);/);
-            if (match) {
-                const destVar = match[1];
-                const source = match[2];
-                if (!dataSegment.hasOwnProperty(destVar)) throw new Error(`C/C++: Variable '${destVar}' not declared before assignment.`);
-
-                if (/^\d+$/.test(source)) {
-                    textSegment += `    li $t0, ${source}          # ${destVar} = ${source}\n`;
-                    textSegment += `    sw $t0, ${destVar}         # Store in memory\n`;
-                } else {
-                    if (!dataSegment.hasOwnProperty(source)) throw new Error(`C/C++: Variable '${source}' not declared before use.`);
-                    textSegment += `    lw $t0, ${source}          # Load ${source} into $t0\n`;
-                    textSegment += `    sw $t0, ${destVar}         # Store $t0 into ${destVar}\n`;
-                }
-                return;
-            }
-
-            match = line.match(/^print\(([a-zA-Z_][a-zA-Z0-9_]*)\);/);
-            if (match) {
-                const varName = match[1];
-                if (!dataSegment.hasOwnProperty(varName)) throw new Error(`C/C++: Variable '${varName}' not declared before print.`);
-                textSegment += `    lw $a0, ${varName}          # Load ${varName} to print\n`;
-                textSegment += `    li $v0, 1              # Syscall for print_int\n`;
-                textSegment += `    syscall                # Execute print\n`;
-                textSegment += `    la $a0, newline        # Load address of newline\n`;
-                textSegment += `    li $v0, 4              # Syscall for print_string\n`;
-                textSegment += `    syscall                # Print newline\n`;
-                return;
-            }
-            textSegment += `    # Unsupported C/C++ line: ${line}\n`;
-        });
-
-        let finalDataSegmentContent = ".data\n";
-        for (const varName in dataSegment) {
-            finalDataSegmentContent += `${varName}: ${dataSegment[varName]}\n`;
-        }
-        let mipsCode = finalDataSegmentContent + "\n" + textSegment;
-
-        mipsCode += "\n    # Exit program\n";
-        mipsCode += "    li $v0, 10             # Syscall for exit\n";
-        mipsCode += "    syscall                # Execute exit\n";
-        return mipsCode;
-    }
-
-    function parseAndGenerateMips_Python(code) {
-        let textSegment = ".text\n.globl main\nmain:\n";
-        const dataSegment = { "newline": ".asciiz \"\\n\"" }; 
-        let tempRegCounter = 0;
-
-        const lines = code.split("\n").map(line => line.trim()).filter(line => line && !line.startsWith("#"));
-
-        lines.forEach(line => {
-            let match;
-
-            // === Handle: dest = var + var (add) ===
-            match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\+\s*([a-zA-Z_][a-zA-Z0-9_]*)$/);
-            if (match) {
-                const [_, dest, op1, op2] = match;
-
-                if (!dataSegment.hasOwnProperty(op1) || !dataSegment.hasOwnProperty(op2)) {
-                    throw new Error(`Python: Variable '${op1}' or '${op2}' used before assignment.`);
-                }
-                if (!dataSegment.hasOwnProperty(dest)) {
-                    dataSegment[dest] = ".word 0";
-                }
-
-                const r1 = `$t${tempRegCounter % 8}`;
-                const r2 = `$t${(tempRegCounter + 1) % 8}`;
-                const r3 = `$t${(tempRegCounter + 2) % 8}`;
-                textSegment += `    lw ${r1}, ${op1}\n    lw ${r2}, ${op2}\n    add ${r3}, ${r1}, ${r2}\n    sw ${r3}, ${dest}\n`;
-                tempRegCounter += 3;
-                return;
-            }
-
-            // === Handle: dest = var + immediate (addi) ===
-            match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\+\s*(\d+)$/);
-            if (match) {
-                const [_, dest, varName, imm] = match;
-
-                if (!dataSegment.hasOwnProperty(varName)) {
-                    throw new Error(`Python: Variable '${varName}' used before assignment.`);
-                }
-                if (!dataSegment.hasOwnProperty(dest)) {
-                    dataSegment[dest] = ".word 0";
-                }
-
-                const r1 = `$t${tempRegCounter % 8}`;
-                const r2 = `$t${(tempRegCounter + 1) % 8}`;
-                textSegment += `    lw ${r1}, ${varName}\n    addi ${r2}, ${r1}, ${imm}\n    sw ${r2}, ${dest}\n`;
-                tempRegCounter += 2;
-                return;
-            }
-
-            // === Handle: dest = var - var (sub) ===
-            match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*-\s*([a-zA-Z_][a-zA-Z0-9_]*)$/);
-            if (match) {
-                const [_, dest, op1, op2] = match;
-
-                if (!dataSegment.hasOwnProperty(op1) || !dataSegment.hasOwnProperty(op2)) {
-                    throw new Error(`Python: Variable '${op1}' or '${op2}' used before assignment.`);
-                }
-                if (!dataSegment.hasOwnProperty(dest)) {
-                    dataSegment[dest] = ".word 0";
-                }
-
-                const r1 = `$t${tempRegCounter % 8}`;
-                const r2 = `$t${(tempRegCounter + 1) % 8}`;
-                const r3 = `$t${(tempRegCounter + 2) % 8}`;
-                textSegment += `    lw ${r1}, ${op1}\n    lw ${r2}, ${op2}\n    sub ${r3}, ${r1}, ${r2}\n    sw ${r3}, ${dest}\n`;
-                tempRegCounter += 3;
-                return;
-            }
-
-            // === Handle assignment: dest = source (literal or variable) ===
-            match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z0-9_]+)$/);
-            if (match) {
-                const [_, dest, source] = match;
-
-                if (/^\d+$/.test(source)) {
-                    dataSegment[dest] = `.word ${source}`;
-                    const r = `$t${tempRegCounter % 8}`;
-                    textSegment += `    li ${r}, ${source}\n    sw ${r}, ${dest}\n`;
-                } else {
-                    if (!dataSegment.hasOwnProperty(source)) {
-                        throw new Error(`Python: Variable '${source}' used before assignment.`);
-                    }
-                    if (!dataSegment.hasOwnProperty(dest)) {
-                        dataSegment[dest] = ".word 0";
-                    }
-                    const r = `$t${tempRegCounter % 8}`;
-                    textSegment += `    lw ${r}, ${source}\n    sw ${r}, ${dest}\n`;
-                }
-                tempRegCounter++;
-                return;
-            }
-
-            // === Handle print(var) ===
-            match = line.match(/^print\(([a-zA-Z_][a-zA-Z0-9_]*)\)$/);
-            if (match) {
-                const varName = match[1];
-                if (!dataSegment.hasOwnProperty(varName)) {
-                    throw new Error(`Python: Variable '${varName}' not defined before print.`);
-                }
-                textSegment += `    lw $a0, ${varName}\n    li $v0, 1\n    syscall\n`;
-                textSegment += `    la $a0, newline\n    li $v0, 4\n    syscall\n`;
-                return;
-            }
-
-            // === Fallback: Unsupported ===
-            textSegment += `    # Unsupported Python line: ${line}\n`;
-        });
-
-        // === Assemble .data and .text ===
-        let finalDataSegmentContent = ".data\n";
-        for (const varName in dataSegment) {
-            finalDataSegmentContent += `${varName}: ${dataSegment[varName]}\n`;
-        }
-
-        let mipsCode = finalDataSegmentContent + "\n" + textSegment;
-        mipsCode += "\n    li $v0, 10\n    syscall\n";
-        return mipsCode;
-    }
-
-
-    function parseAndGenerateMips_Java(code) {
+    function parseAndGenerateMips(language, code) {
         let textSegment = ".text\n.globl main\nmain:\n";
         const dataSegment = { "newline": ".asciiz \"\\n\"" };
 
-        const lines = code.split("\n").map(line => line.trim()).filter(line => line && !line.startsWith("//"));
+        const lines = code.split("\n").map(line => line.trim()).filter(line => line && !line.startsWith(language == "python" ? "#" : "//"));
 
         lines.forEach(line => {
             let match;
-            match = line.match(/^int\s+([a-zA-Z_][a-zA-Z0-9_]*);/);
-            if (match) {
-                const varName = match[1];
-                if (dataSegment[varName]) throw new Error(`Java: Variable '${varName}' already declared.`);
-                dataSegment[varName] = ".word 0";
-                textSegment += `    # int ${varName}; (declared in .data)\n`;
-                return;
-            }
 
-            match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z0-9_]+);/);
-            if (match) {
-                const destVar = match[1];
-                const source = match[2];
-                if (!dataSegment.hasOwnProperty(destVar)) throw new Error(`Java: Variable '${destVar}' not declared before assignment.`);
-                
-                if (/^\d+$/.test(source)) {
-                    textSegment += `    li $t0, ${source}          # ${destVar} = ${source}\n`;
-                    textSegment += `    sw $t0, ${destVar}         # Store in memory\n`;
-                } else {
-                    if (!dataSegment.hasOwnProperty(source)) throw new Error(`Java: Variable '${source}' not declared before use.`);
-                    textSegment += `    lw $t0, ${source}          # Load ${source}\n`;
-                    textSegment += `    sw $t0, ${destVar}         # Store into ${destVar}\n`;
+            if (language == "C/C++" || language == "Java") {
+                // int x;
+                match = line.match(/^int\s+([a-zA-Z_][a-zA-Z0-9_]*);/);
+                if (match) {
+                    const varName = match[1];
+                    if (dataSegment[varName]) throw new Error(`${language}: Variable '${varName}' already declared.`);
+                    dataSegment[varName] = ".word 0";
+                    textSegment += `\n    # int ${varName}; (declared in .data)\n`;
+                    return;
                 }
-                return;
-            }
 
-            match = line.match(/^System\.out\.println\(([a-zA-Z_][a-zA-Z0-9_]*)\);/);
-            if (match) {
-                const varName = match[1];
-                if (!dataSegment.hasOwnProperty(varName)) throw new Error(`Java: Variable '${varName}' not declared before print.`);
-                textSegment += `    lw $a0, ${varName}          # Load ${varName} to print\n`;
-                textSegment += `    li $v0, 1              # Syscall for print_int\n`;
-                textSegment += `    syscall                # Execute print\n`;
-                textSegment += `    la $a0, newline        # Load address of newline\n`;
-                textSegment += `    li $v0, 4              # Syscall for print_string\n`;
-                textSegment += `    syscall                # Print newline\n`;
-                return;
+                // int x = [var/num/expression]
+                match = line.match(/^(?:int\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_0-9\s+\-]+);/);
+                if (match) {
+                    const destVar = match[1];
+                    const expression = match[2].trim();
+                    const parts = expression.split(/\s*([+\-])\s*/); // Split by + or -
+
+                    if (line.includes("int")) {
+                        if (dataSegment[destVar]) throw new Error(`${language}: Variable '${destVar}' already declared.`);
+                        dataSegment[destVar] = ".word 0";
+
+                        textSegment += `\n    # int ${destVar} = ${expression}\n`;
+                    }
+
+                    let currentRegister = "$t0";
+                    let firstOperand = parts[0];
+                    let registerCounter = 1;
+
+                    if (/^\d+$/.test(firstOperand)) {
+                        textSegment += `    li ${currentRegister}, ${firstOperand}      # Load initial value\n`;
+                    } else if (dataSegment.hasOwnProperty(firstOperand)) {
+                        textSegment += `    lw ${currentRegister}, ${firstOperand}      # Load ${firstOperand}\n`;
+                    } else {
+                        throw new Error(`${language}: Variable or immediate '${firstOperand}' not declared.`);
+                    }
+
+                    for (let i = 1; i < parts.length; i += 2) {
+                        const operator = parts[i];
+                        const operand = parts[i + 1];
+                        const nextRegister = `$t${registerCounter}`;
+                        registerCounter++;
+
+                        if (/^\d+$/.test(operand)) {
+                            if (operator === "+") {
+                                textSegment += `    addi ${nextRegister}, ${currentRegister}, ${operand}   # ${operator} with immediate value ${operand}\n`;
+                            } else if (operator === "-") {
+                                textSegment += `    addi ${nextRegister}, ${currentRegister}, -${operand}  # ${operator} with immediate value ${operand}\n`;
+                            }
+                        } else if (dataSegment.hasOwnProperty(operand)) {
+                            textSegment += `    lw ${nextRegister}, ${operand}      # Load ${operand}\n`;
+                            if (operator === "+") {
+                                textSegment += `    add ${nextRegister}, ${currentRegister}, ${nextRegister}      # Add ${operand}\n`;
+                            } else if (operator === "-") {
+                                textSegment += `    sub ${nextRegister}, ${currentRegister}, ${nextRegister}      # Subtract ${operand}\n`;
+                            }
+                        } else {
+                            throw new Error(`${language}: Variable or immediate '${operand}' not declared.`);
+                        }
+                        currentRegister = nextRegister; // Update currentRegister for the next operation
+                    }
+                    textSegment += `    sw ${currentRegister}, ${destVar}         # Store final result\n`;
+                    return;
+                }
+
+                // print(x);
+                if (language == "C/C++") {
+                    match = line.match(/^print\(([a-zA-Z_][a-zA-Z0-9_]*)\);/);
+                } else {
+                    match = line.match(/^System\.out\.println\(([a-zA-Z_][a-zA-Z0-9_]*)\);/);
+                }
+
+                if (match) {
+                    const varName = match[1];
+                    if (!dataSegment.hasOwnProperty(varName)) throw new Error(`${language}: Variable '${varName}' not declared before print.`);
+                    textSegment += `    lw $a0, ${varName}          # Load ${varName} to print\n`;
+                    textSegment += `    li $v0, 1              # Syscall for print_int\n`;
+                    textSegment += `    syscall                # Execute print\n`;
+                    textSegment += `    la $a0, newline        # Load address of newline\n`;
+                    textSegment += `    li $v0, 4              # Syscall for print_string\n`;
+                    textSegment += `    syscall                # Print newline\n`;
+                    return;
+                }
+            } else if (language == "Python") {
+                // x = [num/var/expression]
+                match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_0-9\s+\-]+)/);
+                if (match) {
+                    const destVar = match[1];
+                    const expression = match[2].trim();
+                    const parts = expression.split(/\s*([+\-])\s*/); // Split by + or -
+
+                    let currentRegister = "$t0";
+                    let firstOperand = parts[0];
+                    let registerCounter = 1;
+
+                    if (!dataSegment.hasOwnProperty(destVar)) {
+                        dataSegment[destVar] = ".word 0";
+                    }
+
+                    // Load the first operand into the current register
+                    if (/^\d+$/.test(firstOperand)) {
+                        textSegment += `    li ${currentRegister}, ${firstOperand}      # Load ${firstOperand}\n`;
+                    } else if (dataSegment.hasOwnProperty(firstOperand)) {
+                        textSegment += `    lw ${currentRegister}, ${firstOperand}      # Load ${firstOperand}\n`;
+                    } else {
+                        throw new Error(`${language}: Variable '${firstOperand}' not declared.`);
+                    }
+
+                    // Process subsequent operands and operators
+                    for (let i = 1; i < parts.length; i += 2) {
+                        const operator = parts[i];
+                        const operand = parts[i + 1];
+                        const nextRegister = `$t${registerCounter}`;
+                        registerCounter++;
+
+                        if (/^\d+$/.test(operand)) {
+                            if (operator === "+") {
+                                textSegment += `    addi ${nextRegister}, ${currentRegister}, ${operand}   # ${operator} ${operand}\n`;
+                            } else if (operator === "-") {
+                                textSegment += `    addi ${nextRegister}, ${currentRegister}, -${operand}  # ${operator} ${operand}\n`;
+                            }
+                        } else if (dataSegment.hasOwnProperty(operand)) {
+                            textSegment += `    lw ${nextRegister}, ${operand}      # Load ${operand}\n`;
+                            if (operator === "+") {
+                                textSegment += `    add ${nextRegister}, ${currentRegister}, ${nextRegister}      # ${operator} ${operand}\n`;
+                            } else if (operator === "-") {
+                                textSegment += `    sub ${nextRegister}, ${currentRegister}, ${nextRegister}      # ${operator} ${operand}\n`;
+                            }
+                        } else {
+                            throw new Error(`${language}: Variable '${operand}' not declared.`);
+                        }
+                        currentRegister = nextRegister; // Update currentRegister for the next operation
+                    }
+                    textSegment += `    sw ${currentRegister}, ${destVar}         # Store result in ${destVar}\n`;
+                    return;
+                }
+
+                // === Handle print(var) ===
+                match = line.match(/^print\(([a-zA-Z_][a-zA-Z0-9_]*)\)$/);
+                if (match) {
+                    const varName = match[1];
+                    if (!dataSegment.hasOwnProperty(varName)) {
+                        throw new Error(`Python: Variable '${varName}' not defined before print.`);
+                    }
+                    textSegment += `    lw $a0, ${varName}\n    li $v0, 1\n    syscall\n`;
+                    textSegment += `    la $a0, newline\n    li $v0, 4\n    syscall\n`;
+                    return;
+                }
+
+                // === Fallback: Unsupported ===
+                textSegment += `    # Unsupported Python line: ${line}\n`;
+            } else {
+                console.log("language invalid");
             }
-            textSegment += `    # Unsupported Java line: ${line}\n`;
-        });
+            
+            textSegment += `    # Unsupported ${language} line: ${line}\n`;
+        })
 
         let finalDataSegmentContent = ".data\n";
         for (const varName in dataSegment) {
@@ -456,11 +352,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
         switch (language) {
             case "c_cpp":
-                return parseAndGenerateMips_C_CPP(code);
+                return parseAndGenerateMips("C/C++", code);
             case "python":
-                return parseAndGenerateMips_Python(code);
+                return parseAndGenerateMips("Python", code);
             case "java":
-                return parseAndGenerateMips_Java(code);
+                return parseAndGenerateMips("Java", code);
             default:
                 throw new Error(`Unsupported language for MIPS conversion: ${language}`);
         }
@@ -656,7 +552,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
                         if (upper16Bits !== 0) {
-                            binaryRepresentation += `${toHex(currentAddress)}: ${opcode_lui}${rs_zero}${targetRegister}${decToBinary(upper16Bits, 16)} //     lui ${parts[1]}, ${upper16Bits}\n`;
+                            binaryRepresentation += `${toHex(currentAddress)}: ${opcode_lui}${rs_zero}${targetRegister}${decToBinary(upper16Bits, 16)} //     lui ${parts[1]}, ${upper16Bits}       # Load upper 16 bits of ${labelName} address\n`;
                             currentAddress += 4;
                         }
                         binInstruction = `${opcode_ori}${targetRegister}${targetRegister}${decToBinary(lower16Bits, 16)}`;
