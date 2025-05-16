@@ -31,18 +31,18 @@ document.addEventListener("DOMContentLoaded", () => {
         "sub": { opcode: "000000", funct: "100010" },
         "slt": { opcode: "000000", funct: "101010" },
         // I-type
-        "addi": { opcode: "001000"},
-        "li":  { opcode: "001001" }, // Pseudo-instruction, often `ori $rt, $zero, imm` or `lui/ori`
-        "lw":  { opcode: "100011" },
-        "sw":  { opcode: "101011" },
+        "addi": { opcode: "001000" },
+        "li": { opcode: "001001" }, // Pseudo-instruction, often `ori $rt, $zero, imm` or `lui/ori`
+        "lw": { opcode: "100011" },
+        "sw": { opcode: "101011" },
         "beq": { opcode: "000100" },
         "bne": { opcode: "000101" },
         // J-type
-        "j":   { opcode: "000010" },
+        "j": { opcode: "000010" },
         "jal": { opcode: "000011" },
         // Syscall is special
         "syscall": { opcode: "000000", funct: "001100" }, // Special R-type
-        "la":    {}
+        "la": {}
     };
 
     const registerToBinaryMap = {
@@ -59,7 +59,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function decToBinary(dec, bits) {
         let bin = (dec >>> 0).toString(2);
         if (dec < 0 && bits === 16) { // Handle negative for 16-bit immediate (e.g. branch offsets)
-            bin = ( (1 << bits) + dec ).toString(2);
+            bin = ((1 << bits) + dec).toString(2);
         }
         while (bin.length < bits) {
             bin = "0" + bin;
@@ -70,7 +70,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- Populate Examples Dropdown ---
     function populateExamples() {
         const selectedLang = languageSelect.value;
-        exampleSelect.innerHTML = 
+        exampleSelect.innerHTML =
             '<option value="" disabled selected>--Select an example--</option>'; // Reset
         if (selectedLang && examples[selectedLang]) {
             for (const exName in examples[selectedLang]) {
@@ -95,7 +95,7 @@ document.addEventListener("DOMContentLoaded", () => {
         codeInput.className = `language-${prismLang}`;
         // If Prism is available, highlight the input area after changing language or loading example
         if (typeof Prism !== 'undefined' && Prism.highlightAllUnder) {
-             try { Prism.highlightAllUnder(document.querySelector('.input-section')); } catch (e) { console.warn("Prism highlighting failed for input section after lang change:", e); }
+            try { Prism.highlightAllUnder(document.querySelector('.input-section')); } catch (e) { console.warn("Prism highlighting failed for input section after lang change:", e); }
         }
     });
 
@@ -133,7 +133,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         statusMessage.textContent = "Converting... Please wait.";
-        statusMessage.style.color = "blue";
 
         setTimeout(() => {
             try {
@@ -142,7 +141,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 mipsOutput.textContent = mipsResult;
                 binaryOutput.textContent = binaryResult;
-                
+
                 if (typeof Prism !== 'undefined' && Prism.highlightElement) {
                     try { Prism.highlightElement(mipsOutput); } catch (e) { console.warn("Prism highlighting failed for MIPS output:", e); }
                     try { Prism.highlightElement(binaryOutput); } catch (e) { console.warn("Prism highlighting failed for Binary output:", e); }
@@ -151,7 +150,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
 
                 statusMessage.textContent = "Conversion successful!";
-                statusMessage.style.color = "green";
+                statusMessage.style.color = "#05FF22";
             } catch (error) {
                 mipsOutput.textContent = `Error during MIPS conversion: ${error.message}`;
                 binaryOutput.textContent = "Error during MIPS to Binary conversion.";
@@ -166,7 +165,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function parseAndGenerateMips_C_CPP(code) {
         let textSegment = ".text\n.globl main\nmain:\n";
         const dataSegment = { "newline": ".asciiz \"\\n\"" };
-        let varCounter = 0; 
+        let varCounter = 0;
 
         const lines = code.split("\n").map(line => line.trim()).filter(line => line && !line.startsWith("//"));
 
@@ -268,7 +267,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function parseAndGenerateMips_Python(code) {
         let textSegment = ".text\n.globl main\nmain:\n";
-        const dataSegment = { "newline": ".asciiz \"\\n\"" }; 
+        const dataSegment = { "newline": ".asciiz \"\\n\"" };
         let tempRegCounter = 0;
 
         const lines = code.split("\n").map(line => line.trim()).filter(line => line && !line.startsWith("#"));
@@ -408,7 +407,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const destVar = match[1];
                 const source = match[2];
                 if (!dataSegment.hasOwnProperty(destVar)) throw new Error(`Java: Variable '${destVar}' not declared before assignment.`);
-                
+
                 if (/^\d+$/.test(source)) {
                     textSegment += `    li $t0, ${source}          # ${destVar} = ${source}\n`;
                     textSegment += `    sw $t0, ${destVar}         # Store in memory\n`;
@@ -450,7 +449,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function convertToMips(code, language) {
         console.log(`Converting ${language} code to MIPS:`);
-        if (code.toLowerCase().includes("testerror")) { 
+        if (code.toLowerCase().includes("testerror")) {
             throw new Error("Simulated critical error in MIPS conversion.");
         }
 
@@ -470,10 +469,10 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log("Converting MIPS to Binary:");
         let binaryRepresentation = "// Binary Representation (Simplified - Educational Purposes)\n";
         const lines = mipsCode.split("\n");
-        let currentAddress = 0x00400000; 
-        const labelAddresses = {}; 
-        const dataLabelAddresses = {}; 
-        let dataAddressCounter = 0x10010000; 
+        let currentAddress = 0x00400000;
+        const labelAddresses = {};
+        const dataLabelAddresses = {};
+        let dataAddressCounter = 0x10010000;
         let inTextSegment = false;
         let inDataSegment = false;
 
@@ -489,7 +488,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (line === ".data") { inDataSegment = true; inTextSegment = false; tempAddress = dataAddressCounter; return; }
             if (line === ".text") { inTextSegment = true; inDataSegment = false; tempAddress = currentAddress; return; }
 
-            if (line.endsWith(":")) { 
+            if (line.endsWith(":")) {
                 const label = line.slice(0, -1);
                 if (inTextSegment) {
                     labelAddresses[label] = tempAddress;
@@ -498,10 +497,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             } else if (inTextSegment && !line.startsWith(".")) {
                 const parts = line.replace(/,/g, " ").split(/\s+/).filter(p => p);
-                if(parts.length > 0 && mipsToBinaryMap[parts[0].toLowerCase()]){
-                    tempAddress += 4; 
+                if (parts.length > 0 && mipsToBinaryMap[parts[0].toLowerCase()]) {
+                    tempAddress += 4;
                 }
-             } else if (inDataSegment) {
+            } else if (inDataSegment) {
                 const parts = line.split(/\s+/);
                 const labelMatch = parts[0].match(/^(\w+):$/); // Check if the line starts with a label:
                 let label = null;
@@ -524,10 +523,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             }
         });
-        
+
         inTextSegment = false;
         inDataSegment = false;
-        currentAddress = 0x00400000; 
+        currentAddress = 0x00400000;
         dataAddressCounter = 0x10010000;
 
         lines.forEach(line => {
@@ -538,39 +537,39 @@ document.addEventListener("DOMContentLoaded", () => {
                 line = line.substring(0, commentIndex).trim();
             }
 
-            if (!line) { 
+            if (!line) {
                 binaryRepresentation += `// ${originalLine}\n`;
                 return;
-            }
-            
-            if (line === ".data") { 
-                inDataSegment = true; inTextSegment = false; 
-                binaryRepresentation += `// ${originalLine}\n`; 
-                currentAddress = dataAddressCounter; 
-                return; 
-            }
-            if (line === ".text") { 
-                inTextSegment = true; inDataSegment = false; 
-                binaryRepresentation += `// ${originalLine}\n`; 
-                currentAddress = 0x00400000; 
-                return; 
             }
 
-            if (line.endsWith(":")) { 
+            if (line === ".data") {
+                inDataSegment = true; inTextSegment = false;
+                binaryRepresentation += `// ${originalLine}\n`;
+                currentAddress = dataAddressCounter;
+                return;
+            }
+            if (line === ".text") {
+                inTextSegment = true; inDataSegment = false;
+                binaryRepresentation += `// ${originalLine}\n`;
+                currentAddress = 0x00400000;
+                return;
+            }
+
+            if (line.endsWith(":")) {
                 binaryRepresentation += `// ${originalLine}\n`;
                 return;
             }
-            
+
             if (inDataSegment) {
                 const parts = line.split(/\s+/);
-                const label = parts[0].slice(0,-1); 
+                const label = parts[0].slice(0, -1);
                 const directive = parts[1];
                 const value = parts.slice(2).join(" ");
                 binaryRepresentation += `0x${(dataLabelAddresses[label] || currentAddress).toString(16)}: Data (${directive} ${value}) // ${originalLine}\n`;
                 return;
             }
 
-            if (!inTextSegment || line.startsWith(".")) { 
+            if (!inTextSegment || line.startsWith(".")) {
                 binaryRepresentation += `// ${originalLine}\n`;
                 return;
             }
@@ -583,13 +582,13 @@ document.addEventListener("DOMContentLoaded", () => {
             const instruction = parts[0].toLowerCase();
             const def = mipsToBinaryMap[instruction];
 
-            let binInstruction = "????????????????????????????????"; 
+            let binInstruction = "????????????????????????????????";
 
             if (def) {
                 console.log(instruction)
                 if (instruction === "syscall") {
                     binInstruction = `${def.opcode}000000000000000000000${def.funct}`;
-                } else if (def.funct) { 
+                } else if (def.funct) {
                     const rd = registerToBinaryMap[parts[1]] || "00000";
                     const rs = registerToBinaryMap[parts[2]] || "00000";
                     const rt = registerToBinaryMap[parts[3]] || "00000";
@@ -601,21 +600,21 @@ document.addEventListener("DOMContentLoaded", () => {
                     const immediate = parseInt(parts[3]);
                     const immediate_bin = decToBinary(immediate & 0xFFFF, 16);
                     binInstruction = `${def.opcode}${rs}${rt}${immediate_bin}`;
-                } else if (instruction === "li") { 
+                } else if (instruction === "li") {
                     const rt = registerToBinaryMap[parts[1]] || "00000";
                     const imm = parseInt(parts[2]);
-                    if (imm >= -32768 && imm <= 65535) { 
-                         const rs_zero = registerToBinaryMap["$zero"];
-                         binInstruction = `001001${rs_zero}${rt}${decToBinary(imm, 16)}`;
+                    if (imm >= -32768 && imm <= 65535) {
+                        const rs_zero = registerToBinaryMap["$zero"];
+                        binInstruction = `001001${rs_zero}${rt}${decToBinary(imm, 16)}`;
                     } else {
                         binInstruction = `complex_li_expansion_needed`;
                     }
-                } else if (instruction === "lw" || instruction === "sw") { 
+                } else if (instruction === "lw" || instruction === "sw") {
                     const rt_reg = registerToBinaryMap[parts[1]] || "00000";
                     let offset_bin = "0000000000000000";
                     let rs_reg = "00000";
                     const memPart = parts[2];
-                    const memMatch = memPart.match(/(\d+)?\(([\$\w]+)\)/); 
+                    const memMatch = memPart.match(/(\d+)?\(([\$\w]+)\)/);
                     if (memMatch) {
                         offset_bin = decToBinary(parseInt(memMatch[1] || "0"), 16);
                         rs_reg = registerToBinaryMap[memMatch[2]] || "00000";
@@ -631,7 +630,7 @@ document.addEventListener("DOMContentLoaded", () => {
                             binInstruction = `unknown_label_for_load_store`;
                         }
                     }
-                    if(binInstruction.startsWith("?")) binInstruction = `${def.opcode}${rs_reg}${rt_reg}${offset_bin}`;
+                    if (binInstruction.startsWith("?")) binInstruction = `${def.opcode}${rs_reg}${rt_reg}${offset_bin}`;
                 } else if (instruction === "la") { // Handle la pseudo-instruction
                     const targetRegister = registerToBinaryMap[parts[1]] || "00000";
                     const labelName = parts[2];
@@ -664,7 +663,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         binInstruction = `label_${labelName}_not_found`;
                         binaryRepresentation += `// WARN: Label ${labelName} not found for la\n`;
                     }
-                } else if (instruction === "beq" || instruction === "bne") { 
+                } else if (instruction === "beq" || instruction === "bne") {
                     const rs_br = registerToBinaryMap[parts[1]] || "00000";
                     const rt_br = registerToBinaryMap[parts[2]] || "00000";
                     const labelName = parts[3];
@@ -677,7 +676,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         binaryRepresentation += `// WARN: Label ${labelName} not found for ${instruction}\n`;
                     }
                     binInstruction = `${def.opcode}${rs_br}${rt_br}${relativeOffset}`;
-                } else if (instruction === "j" || instruction === "jal") { 
+                } else if (instruction === "j" || instruction === "jal") {
                     const labelName = parts[1];
                     let target = "??????????????????????????";
                     if (labelAddresses[labelName]) {
@@ -726,7 +725,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Initial setup
     populateExamples();
     if (typeof Prism !== 'undefined' && Prism.highlightAll) {
-        try { Prism.highlightAll(); } catch(e) { console.warn("Initial Prism highlighting failed:", e); }
+        try { Prism.highlightAll(); } catch (e) { console.warn("Initial Prism highlighting failed:", e); }
     } else {
         console.warn("Prism.js not available for initial highlighting.");
     }
