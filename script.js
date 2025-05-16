@@ -7,6 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const statusMessage = document.getElementById("status-message");
     const copyBtns = document.querySelectorAll(".copy-btn");
     const exampleSelect = document.getElementById("example-select");
+    const outputSection = document.getElementById("output-section");
 
     // --- Example Code Snippets ---
     const examples = {
@@ -113,6 +114,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Event listener for the convert button
     convertBtn.addEventListener("click", () => {
+        outputSection.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+        })
+
         const selectedLanguage = languageSelect.value;
         const sourceCode = codeInput.value.trim();
 

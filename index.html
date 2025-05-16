@@ -47,21 +47,21 @@
             <textarea id="code-input" class="language-none" rows="15" placeholder="Enter your code here..."></textarea>
         </section>
 
-        <section class="output-section">
-            <div class="output-area">
-                <div class="output-header">
-                    <label for="mips-output">MIPS Assembly Output:</label>
-                    <button class="copy-btn" data-target="mips-output">Copy</button>
-                </div>
-                <pre><code id="mips-output" class="language-mips">; MIPS code will appear here...</code></pre>
-            </div>
-            <div class="output-area">
+        <section id="output-section" class="output-section">
+            <div class="output-area binary">
                 <div class="output-header">
                     <label for="binary-output">Binary (Machine Code) Output:</label>
                     <button class="copy-btn" data-target="binary-output">Copy</button>
                 </div>
                 <pre><code id="binary-output" class="language-none">// Binary code will appear here...</code></pre>
                 <!-- Binary might not have a standard Prism language, so '' or custom -->
+            </div>
+            <div class="output-area mips">
+                <div class="output-header">
+                    <label for="mips-output">MIPS Assembly Output:</label>
+                    <button class="copy-btn" data-target="mips-output">Copy</button>
+                </div>
+                <pre><code id="mips-output" class="language-mips">; MIPS code will appear here...</code></pre>
             </div>
         </section>
     </main>

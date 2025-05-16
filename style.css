@@ -7,15 +7,13 @@
     --clr-glow: #CE52FF;
     --clr-border: #C9ADF980;
     --clr-text: #FFFFFF;
-    --clr-text-dark: #F3F3F3;
     --clr-select: #FFFFFF4D;
+    --clr-code: #262626;
 
     /* Gradients */
     --grad-selection: linear-gradient(#D9D9D91A, #7373731A);
-    --grad-selection-border: conic-gradient(to right, #C9ADF9, #8865CE);
     --grad-input-border: #2F00FF, #DF3FFF, #2F00FF;
     --grad-button: linear-gradient(to right, #5930ED, #8530ED);
-    --grad-glow: linear-gradient(to right, #9D41FF, #CE52FF);
 
     /* Fonts */
     --font-family-1: "Russo One", sans-serif;
@@ -42,6 +40,7 @@
     --spacing-2: 24px;
     --spacing-3: 32px;
     --spacing-4: 40px;
+    --spacing-5: 48px;
 
     /* Sizes */
     --rounded-xs: 7px;
@@ -82,24 +81,24 @@ body {
 /* Glow Background */
 .glow {
     position: fixed;
-    top: -400px;
+    top: -600px;
     left: -400px;
-    width: 800px;
+    width: 1200px;
     aspect-ratio: 1;
     background: radial-gradient(closest-side, var(--clr-glow), var(--clr-bg));
     z-index: -1;
-    opacity: 0.25;
+    opacity: 0.15;
 }
 
 .glow.right {
-    inset: auto -200px -200px auto;
+    inset: auto -400px -600px auto;
 }
 
 /* Header Styles */
 header {
     font: var(--font-russo-700);
     text-align: center;
-    margin-bottom: var(--spacing-4);
+    margin-bottom: var(--spacing-5);
 }
 
 /* Main Content Area */
@@ -110,7 +109,7 @@ main {
         'output output';
     grid-template-columns: 430px 1fr;
     grid-template-rows: repeat(2, 600px);
-    gap: var(--spacing-2);
+    gap: var(--spacing-5);
 }
 
 /* Section Styling */
@@ -135,8 +134,10 @@ main {
 }
 
 .control-group {
+    max-width: 365px;
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
     gap: var(--spacing-0-5);
 }
 
@@ -146,6 +147,7 @@ main {
     border-radius: var(--rounded-xs);
     border: none;
     width: 100%;
+    font: var(--font-russo-300);
 }
 
 .convert-btn {
@@ -156,6 +158,15 @@ main {
     background-image: var(--grad-button);
 }
 
+button {
+    cursor: pointer;
+    transition: opacity var(--transition-duration) var(--transition-timing-function);
+}
+
+button:hover {
+    opacity: 0.75;
+}
+
 .input-section {
     position: relative;
     display: flex;
@@ -164,6 +175,7 @@ main {
     padding: 2px;
 }
 
+/* Border Gradient Color */
 @property --angle {
     syntax: "<angle>";
     initial-value: 0deg;
@@ -185,6 +197,11 @@ main {
     animation: 3s spin linear infinite;
 }
 
+.input-section::after {
+    filter: blur(16px);
+    opacity: 0.5;
+}
+
 @keyframes spin {
     from {
         --angle: 0deg;
@@ -195,10 +212,6 @@ main {
     }
 }
 
-.input-section::after {
-    filter: blur(16px);
-    opacity: 0.5;
-}
 
 textarea {
     width: 100%;
@@ -211,76 +224,51 @@ textarea {
     resize: none;
 }
 
-button {
-    background-color: #5cb85c;
-    color: white;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-}
-
-button:hover {
-    background-color: #4cae4c;
-}
-
 
 .copy-btn {
-    background-color: #6c757d;
-    font-size: 0.8rem;
-    padding: 5px 10px;
-}
-
-.copy-btn:hover {
-    background-color: #5a6268;
+    border: none;
+    background-image: var(--grad-button);
+    padding: var(--spacing-0-5) var(--spacing-1);
+    border-radius: var(--rounded-xs);
+    font: var(--font-russo-300);
+    font-size: 1rem;
 }
 
 /* Output Section Styling */
 .output-section {
+    grid-area: output;
     display: flex;
-    flex-direction: column;
-    /* Stack output areas vertically on small screens */
-    gap: 20px;
+    gap: var(--spacing-5);
 }
 
 .output-area {
-    flex: 1;
-    /* Allow output areas to share space */
-    background-color: #e9ecef;
-    padding: 15px;
-    border-radius: 5px;
+    position: relative;
+    width: calc(50% - 2rem);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+    background-color: var(--clr-fg);
+    padding: var(--spacing-2);
+    border-radius: var(--rounded-sm);
 }
+
 
 .output-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
-}
-
-.output-header label {
-    margin-bottom: 0;
-    /* Remove bottom margin for label in header */
 }
 
 pre {
-    background: #2d2d2d;
-    /* Dark background for code blocks */
-    color: #f8f8f2;
-    /* Light text for code blocks */
-    padding: 15px;
-    border-radius: 4px;
-    overflow-x: auto;
-    /* Allow horizontal scrolling for long lines */
-    white-space: pre-wrap;
-    /* Wrap long lines */
+    background: var(--clr-code) !important;
+    padding: var(--spacing-1);
+    border-radius: var(--rounded-xs);
     word-wrap: break-word;
-    /* Break words if necessary */
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 0.9rem;
 }
 
 code {
-    display: block;
-    /* Ensure code block takes full width of pre */
+    font: var(--font-cutive) !important;
+    line-height: 1.6 !important;
 }
 
 /* Status Message Styling */
@@ -290,9 +278,4 @@ code {
     margin: auto;
     pointer-events: none;
     z-index: 2;
-}
-
-#status-message {
-    text-align: center;
-    font-weight: bold;
 }
