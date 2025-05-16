@@ -1,0 +1,25 @@
+{
+  "name": "code-to-mips-binary-converter",
+  "version": "1.0.0",
+  "main": "script.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "live-server"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/controlplusn/code-to-mips-binary-converter.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/controlplusn/code-to-mips-binary-converter/issues"
+  },
+  "homepage": "https://github.com/controlplusn/code-to-mips-binary-converter#readme",
+  "description": "",
+  "devDependencies": {
+    "live-server": "^1.2.0"
+  }
+}
