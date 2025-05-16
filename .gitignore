@@ -1,36 +1,16 @@
-# Dependency directory
-node_modules/
-
-# npm cache folder (optional)
-.npm/
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-error.log
-pnpm-debug.log
-
-# Build outputs
+# Build output
 dist/
 build/
 
-# Environment files
-.env
-
-# IDE/editor configs
+# Editor/IDE configs
 .vscode/
 .idea/
 
-# System files
-.DS_Store
-Thumbs.db
-ehthumbs.db
-Icon?
+# System metadata
+.DS_Store        # macOS
+Thumbs.db        # Windows
+ehthumbs.db      # Windows
+Icon?            # macOS custom icons
 
 # Vim swap files
 *.swp
-
-# Optional lock files (if you use yarn or pnpm)
-yarn.lock
-pnpm-lock.yaml
