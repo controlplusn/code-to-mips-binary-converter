@@ -31,6 +31,7 @@ document.addEventListener("DOMContentLoaded", () => {
         "sub": { opcode: "000000", funct: "100010" },
         "slt": { opcode: "000000", funct: "101010" },
         // I-type
+        "addi": { opcode: "001000"},
         "li":  { opcode: "001001" }, // Pseudo-instruction, often `ori $rt, $zero, imm` or `lui/ori`
         "lw":  { opcode: "100011" },
         "sw":  { opcode: "101011" },
@@ -40,7 +41,8 @@ document.addEventListener("DOMContentLoaded", () => {
         "j":   { opcode: "000010" },
         "jal": { opcode: "000011" },
         // Syscall is special
-        "syscall": { opcode: "000000", funct: "001100" } // Special R-type
+        "syscall": { opcode: "000000", funct: "001100" }, // Special R-type
+        "la":    {}
     };
 
     const registerToBinaryMap = {
@@ -174,21 +176,62 @@ document.addEventListener("DOMContentLoaded", () => {
             if (match) {
                 const varName = match[1];
                 if (dataSegment[varName]) throw new Error(`C/C++: Variable '${varName}' already declared.`);
-                dataSegment[varName] = ".word 0"; 
+                dataSegment[varName] = ".word 0";
                 textSegment += `    # int ${varName}; (declared in .data)\n`;
                 return;
             }
+
+            match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z0-9_]+)\s*\+\s*([a-zA-Z0-9_]+);/);
+            if (match) {
+                const destVar = match[1];
+                const operand1 = match[2];
+                const operand2 = match[3];
+                if (!dataSegment.hasOwnProperty(destVar)) throw new Error(`C/C++: Variable '${destVar}' not declared before assignment.`);
+                if (!dataSegment.hasOwnProperty(operand1)) throw new Error(`C/C++: Variable '${operand1}' not declared before use.`);
+                if (!/^\d+$/.test(operand2) && !dataSegment.hasOwnProperty(operand2)) throw new Error(`C/C++: Variable or immediate '${operand2}' not declared before use.`);
+
+                textSegment += `    lw $t1, ${operand1}      # Load ${operand1} into $t1\n`;
+                if (/^\d+$/.test(operand2)) {
+                    textSegment += `    addi $t0, $t1, ${operand2}   # Calculate ${operand1} + ${operand2} (immediate) and store in $t0\n`;
+                } else {
+                    textSegment += `    lw $t2, ${operand2}      # Load ${operand2} into $t2\n`;
+                    textSegment += `    add $t0, $t1, $t2      # Calculate ${operand1} + ${operand2} and store in $t0\n`;
+                }
+                textSegment += `    sw $t0, ${destVar}      # Store the result into ${destVar}\n`;
+                return;
+            }
+
+            match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z0-9_]+)\s*\-\s*([a-zA-Z0-9_]+);/);
+            if (match) {
+                const destVar = match[1];
+                const operand1 = match[2];
+                const operand2 = match[3];
+                if (!dataSegment.hasOwnProperty(destVar)) throw new Error(`C/C++: Variable '${destVar}' not declared before assignment.`);
+                if (!dataSegment.hasOwnProperty(operand1)) throw new Error(`C/C++: Variable '${operand1}' not declared before use.`);
+                if (!/^\d+$/.test(operand2) && !dataSegment.hasOwnProperty(operand2)) throw new Error(`C/C++: Variable or immediate '${operand2}' not declared before use.`);
+
+                textSegment += `    lw $t1, ${operand1}      # Load ${operand1} into $t1\n`;
+                if (/^\d+$/.test(operand2)) {
+                    textSegment += `    addi $t0, $t1, -${operand2}  # Calculate ${operand1} - ${operand2} (immediate) and store in $t0\n`;
+                } else {
+                    textSegment += `    lw $t2, ${operand2}      # Load ${operand2} into $t2\n`;
+                    textSegment += `    sub $t0, $t1, $t2      # Calculate ${operand1} - ${operand2} and store in $t0\n`;
+                }
+                textSegment += `    sw $t0, ${destVar}      # Store the result into ${destVar}\n`;
+                return;
+            }
+
 
             match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z0-9_]+);/);
             if (match) {
                 const destVar = match[1];
                 const source = match[2];
                 if (!dataSegment.hasOwnProperty(destVar)) throw new Error(`C/C++: Variable '${destVar}' not declared before assignment.`);
-                
-                if (/^\d+$/.test(source)) { 
+
+                if (/^\d+$/.test(source)) {
                     textSegment += `    li $t0, ${source}          # ${destVar} = ${source}\n`;
                     textSegment += `    sw $t0, ${destVar}         # Store in memory\n`;
-                } else { 
+                } else {
                     if (!dataSegment.hasOwnProperty(source)) throw new Error(`C/C++: Variable '${source}' not declared before use.`);
                     textSegment += `    lw $t0, ${source}          # Load ${source} into $t0\n`;
                     textSegment += `    sw $t0, ${destVar}         # Store $t0 into ${destVar}\n`;
@@ -226,44 +269,85 @@ document.addEventListener("DOMContentLoaded", () => {
     function parseAndGenerateMips_Python(code) {
         let textSegment = ".text\n.globl main\nmain:\n";
         const dataSegment = { "newline": ".asciiz \"\\n\"" }; 
-        let tempRegCounter = 0;
+        let tempRegCounter = 0; // Index for selecting temporary registers $t0-$t7
 
         const lines = code.split("\n").map(line => line.trim()).filter(line => line && !line.startsWith("#"));
 
         lines.forEach(line => {
             let match;
+
+            // New: Match arithmetic assignment: destVar = operand1 + operand2
+            // This regex handles spaces around variable names and the plus operator.
+            match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\+\s*([a-zA-Z_][a-zA-Z0-9_]*)/);
+            if (match) {
+                const destVar = match[1];
+                const operand1 = match[2];
+                const operand2 = match[3];
+
+                if (!dataSegment.hasOwnProperty(operand1)) {
+                    throw new Error(`Python: Variable '${operand1}' used before assignment in addition.`);
+                }
+                if (!dataSegment.hasOwnProperty(operand2)) {
+                    throw new Error(`Python: Variable '${operand2}' used before assignment in addition.`);
+                }
+
+                if (!dataSegment.hasOwnProperty(destVar)) {
+                    dataSegment[destVar] = ".word 0"; // Initialize in .data, value computed at runtime
+                }
+
+                const regOp1 = `$t${tempRegCounter % 8}`;
+                const regOp2 = `$t${(tempRegCounter + 1) % 8}`;
+                const regDestVal = `$t${(tempRegCounter + 2) % 8}`; // To store the sum
+
+                textSegment += `    lw ${regOp1}, ${operand1}      # Load ${operand1} into ${regOp1}\n`;
+                textSegment += `    lw ${regOp2}, ${operand2}      # Load ${operand2} into ${regOp2}\n`;
+                textSegment += `    add ${regDestVal}, ${regOp1}, ${regOp2}  # ${regDestVal} = ${regOp1} + ${regOp2} (${destVar} = ${operand1} + ${operand2})\n`;
+                textSegment += `    sw ${regDestVal}, ${destVar}     # Store result from ${regDestVal} into ${destVar}\n`;
+                
+                tempRegCounter = (tempRegCounter + 3); // Advance counter for the three registers used
+                return;
+            }
+
+            // Existing: Match variable assignment: destVar = source (literal number or another variable)
             match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z0-9_]+)/);
             if (match) {
                 const destVar = match[1];
                 const source = match[2];
-                if (!dataSegment.hasOwnProperty(destVar)) {
-                    dataSegment[destVar] = ".word 0"; 
-                }
 
-                if (/^\d+$/.test(source)) { 
-                    textSegment += `    li $t${tempRegCounter % 8}, ${source}      # ${destVar} = ${source}\n`;
-                    textSegment += `    sw $t${tempRegCounter % 8}, ${destVar}     # Store in memory\n`;
-                } else { 
-                    if (!dataSegment.hasOwnProperty(source)) throw new Error(`Python: Variable '${source}' not defined before use.`);
-                    textSegment += `    lw $t${tempRegCounter % 8}, ${source}      # Load ${source}\n`;
-                    textSegment += `    sw $t${tempRegCounter % 8}, ${destVar}     # Store into ${destVar}\n`;
+                if (/^\d+$/.test(source)) { // Source is a literal number
+                    dataSegment[destVar] = `.word ${source}`; 
+                    textSegment += `    li $t${tempRegCounter % 8}, ${source}      # Load immediate ${source} into $t${tempRegCounter % 8} (${destVar} = ${source})\n`;
+                    textSegment += `    sw $t${tempRegCounter % 8}, ${destVar}     # Store content of $t${tempRegCounter % 8} to memory location ${destVar}\n`;
+                } else { // Source is another variable name
+                    if (!dataSegment.hasOwnProperty(source)) {
+                        throw new Error(`Python: Variable '${source}' used before assignment.`);
+                    }
+                    if (!dataSegment.hasOwnProperty(destVar)) {
+                        dataSegment[destVar] = ".word 0"; 
+                    }
+                    textSegment += `    lw $t${tempRegCounter % 8}, ${source}      # Load value of ${source} into $t${tempRegCounter % 8}\n`;
+                    textSegment += `    sw $t${tempRegCounter % 8}, ${destVar}     # Store content of $t${tempRegCounter % 8} (from ${source}) to memory location ${destVar}\n`;
                 }
-                tempRegCounter++;
-                return;
+                tempRegCounter = (tempRegCounter + 1); // Advance counter for the one register used
+                return; 
             }
 
+            // Existing: Match print statement: print(var_name)
             match = line.match(/^print\(([a-zA-Z_][a-zA-Z0-9_]*)\)/);
             if (match) {
                 const varName = match[1];
-                if (!dataSegment.hasOwnProperty(varName)) throw new Error(`Python: Variable '${varName}' not defined before print.`);
-                textSegment += `    lw $a0, ${varName}          # Load ${varName} to print\n`;
-                textSegment += `    li $v0, 1              # Syscall for print_int\n`;
-                textSegment += `    syscall                # Execute print\n`;
-                textSegment += `    la $a0, newline        # Load address of newline\n`;
-                textSegment += `    li $v0, 4              # Syscall for print_string\n`;
-                textSegment += `    syscall                # Print newline\n`;
-                return;
+                if (!dataSegment.hasOwnProperty(varName)) {
+                    throw new Error(`Python: Variable '${varName}' not defined before print.`);
+                }
+                textSegment += `    lw $a0, ${varName}          # Load value of ${varName} into $a0 for printing\n`;
+                textSegment += `    li $v0, 1              # System call code for print_int\n`;
+                textSegment += `    syscall                # Execute print integer syscall\n`;
+                textSegment += `    la $a0, newline        # Load address of newline string into $a0\n`;
+                textSegment += `    li $v0, 4              # System call code for print_string\n`;
+                textSegment += `    syscall                # Execute print string syscall (prints newline)\n`;
+                return; 
             }
+
             textSegment += `    # Unsupported Python line: ${line}\n`;
         });
         
@@ -271,11 +355,13 @@ document.addEventListener("DOMContentLoaded", () => {
         for (const varName in dataSegment) {
             finalDataSegmentContent += `${varName}: ${dataSegment[varName]}\n`;
         }
+        
         let mipsCode = finalDataSegmentContent + "\n" + textSegment;
 
         mipsCode += "\n    # Exit program\n";
-        mipsCode += "    li $v0, 10             # Syscall for exit\n";
-        mipsCode += "    syscall                # Execute exit\n";
+        mipsCode += "    li $v0, 10             # System call code for exit\n";
+        mipsCode += "    syscall                # Execute exit syscall\n";
+        
         return mipsCode;
     }
 
@@ -394,14 +480,25 @@ document.addEventListener("DOMContentLoaded", () => {
                 if(parts.length > 0 && mipsToBinaryMap[parts[0].toLowerCase()]){
                     tempAddress += 4; 
                 }
-            } else if (inDataSegment) {
+             } else if (inDataSegment) {
                 const parts = line.split(/\s+/);
-                const directive = parts[1]; 
+                const labelMatch = parts[0].match(/^(\w+):$/); // Check if the line starts with a label:
+                let label = null;
+                let directiveIndex = 0;
+
+                if (labelMatch) {
+                    label = labelMatch[1];
+                    dataLabelAddresses[label] = tempAddress; // Store the address of the label
+                    directiveIndex = 1; // Move to the next part to find the directive
+                }
+
+                const directive = parts[directiveIndex];
+
                 if (directive === ".word") {
-                    tempAddress += 4 * (parts.length -2);
+                    tempAddress += 4 * (parts.length - 1 - directiveIndex);
                 } else if (directive === ".asciiz") {
-                    const str = parts.slice(2).join(" ").slice(1, -1); 
-                    tempAddress += (str.replace(/\\n/g, "\n").length + 1); 
+                    const str = parts.slice(directiveIndex + 1).join(" ").slice(1, -1);
+                    tempAddress += (str.replace(/\\n/g, "\n").length + 1);
                     if (tempAddress % 4 !== 0) tempAddress = tempAddress + (4 - (tempAddress % 4));
                 }
             }
@@ -468,6 +565,7 @@ document.addEventListener("DOMContentLoaded", () => {
             let binInstruction = "????????????????????????????????"; 
 
             if (def) {
+                console.log(instruction)
                 if (instruction === "syscall") {
                     binInstruction = `${def.opcode}000000000000000000000${def.funct}`;
                 } else if (def.funct) { 
@@ -476,6 +574,12 @@ document.addEventListener("DOMContentLoaded", () => {
                     const rt = registerToBinaryMap[parts[3]] || "00000";
                     const shamt = "00000";
                     binInstruction = `${def.opcode}${rs}${rt}${rd}${shamt}${def.funct}`;
+                } else if (instruction === "addi") {
+                    const rt = registerToBinaryMap[parts[1]] || "00000";
+                    const rs = registerToBinaryMap[parts[2]] || "00000";
+                    const immediate = parseInt(parts[3]);
+                    const immediate_bin = decToBinary(immediate & 0xFFFF, 16);
+                    binInstruction = `${def.opcode}${rs}${rt}${immediate_bin}`;
                 } else if (instruction === "li") { 
                     const rt = registerToBinaryMap[parts[1]] || "00000";
                     const imm = parseInt(parts[2]);
@@ -494,19 +598,51 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (memMatch) {
                         offset_bin = decToBinary(parseInt(memMatch[1] || "0"), 16);
                         rs_reg = registerToBinaryMap[memMatch[2]] || "00000";
-                    } else { 
+                    } else {
                         if (dataLabelAddresses[memPart]) {
-                            rs_reg = registerToBinaryMap["$zero"]; 
-                            offset_bin = decToBinary(dataLabelAddresses[memPart] & 0xFFFF, 16); 
-                            binInstruction = `complex_label_load_store`;
+                            const rt_reg = registerToBinaryMap[parts[1]] || "00000"; // The register being loaded/stored
+                            const rs_reg = registerToBinaryMap["$zero"]; // Base register is $zero for direct addressing of data labels
+                            const offset = dataLabelAddresses[memPart];
+                            const offset_bin = decToBinary(offset & 0xFFFF, 16); // Take lower 16 bits as offset
+
+                            binInstruction = `${def.opcode}${rs_reg}${rt_reg}${offset_bin}`;
                         } else {
                             binInstruction = `unknown_label_for_load_store`;
                         }
                     }
                     if(binInstruction.startsWith("?")) binInstruction = `${def.opcode}${rs_reg}${rt_reg}${offset_bin}`;
+                } else if (instruction === "la") { // Handle la pseudo-instruction
+                    const targetRegister = registerToBinaryMap[parts[1]] || "00000";
+                    const labelName = parts[2];
+                    let address = null;
 
-                } else if (instruction === "la") { 
-                    binInstruction = `pseudo_la_expansion_needed`;
+                    if (dataLabelAddresses[labelName] !== undefined) {
+                        address = dataLabelAddresses[labelName];
+                    } else if (labelAddresses[labelName] !== undefined) {
+                        address = labelAddresses[labelName];
+                    }
+
+                    if (address !== null) {
+                        const upper16Bits = (address >>> 16) & 0xFFFF;
+                        const lower16Bits = address & 0xFFFF;
+                        const opcode_lui = "001111"; // Opcode for LUI
+                        const opcode_ori = "001101"; // Opcode for ORI
+                        const rs_zero = registerToBinaryMap["$zero"];
+
+                        function toHex(decimal) {
+                            return '0x' + decimal.toString(16).padStart(8, '0');
+                        }
+
+
+                        if (upper16Bits !== 0) {
+                            binaryRepresentation += `${toHex(currentAddress)}: ${opcode_lui}${rs_zero}${targetRegister}${decToBinary(upper16Bits, 16)} //     lui ${parts[1]}, ${upper16Bits}\n`;
+                            currentAddress += 4;
+                        }
+                        binInstruction = `${opcode_ori}${targetRegister}${targetRegister}${decToBinary(lower16Bits, 16)}`;
+                    } else {
+                        binInstruction = `label_${labelName}_not_found`;
+                        binaryRepresentation += `// WARN: Label ${labelName} not found for la\n`;
+                    }
                 } else if (instruction === "beq" || instruction === "bne") { 
                     const rs_br = registerToBinaryMap[parts[1]] || "00000";
                     const rt_br = registerToBinaryMap[parts[2]] || "00000";
