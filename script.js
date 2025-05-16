@@ -269,101 +269,122 @@ document.addEventListener("DOMContentLoaded", () => {
     function parseAndGenerateMips_Python(code) {
         let textSegment = ".text\n.globl main\nmain:\n";
         const dataSegment = { "newline": ".asciiz \"\\n\"" }; 
-        let tempRegCounter = 0; // Index for selecting temporary registers $t0-$t7
+        let tempRegCounter = 0;
 
         const lines = code.split("\n").map(line => line.trim()).filter(line => line && !line.startsWith("#"));
 
         lines.forEach(line => {
             let match;
 
-            // New: Match arithmetic assignment: destVar = operand1 + operand2
-            // This regex handles spaces around variable names and the plus operator.
-            match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\+\s*([a-zA-Z_][a-zA-Z0-9_]*)/);
+            // === Handle: dest = var + var (add) ===
+            match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\+\s*([a-zA-Z_][a-zA-Z0-9_]*)$/);
             if (match) {
-                const destVar = match[1];
-                const operand1 = match[2];
-                const operand2 = match[3];
+                const [_, dest, op1, op2] = match;
 
-                if (!dataSegment.hasOwnProperty(operand1)) {
-                    throw new Error(`Python: Variable '${operand1}' used before assignment in addition.`);
+                if (!dataSegment.hasOwnProperty(op1) || !dataSegment.hasOwnProperty(op2)) {
+                    throw new Error(`Python: Variable '${op1}' or '${op2}' used before assignment.`);
                 }
-                if (!dataSegment.hasOwnProperty(operand2)) {
-                    throw new Error(`Python: Variable '${operand2}' used before assignment in addition.`);
+                if (!dataSegment.hasOwnProperty(dest)) {
+                    dataSegment[dest] = ".word 0";
                 }
 
-                if (!dataSegment.hasOwnProperty(destVar)) {
-                    dataSegment[destVar] = ".word 0"; // Initialize in .data, value computed at runtime
-                }
-
-                const regOp1 = `$t${tempRegCounter % 8}`;
-                const regOp2 = `$t${(tempRegCounter + 1) % 8}`;
-                const regDestVal = `$t${(tempRegCounter + 2) % 8}`; // To store the sum
-
-                textSegment += `    lw ${regOp1}, ${operand1}      # Load ${operand1} into ${regOp1}\n`;
-                textSegment += `    lw ${regOp2}, ${operand2}      # Load ${operand2} into ${regOp2}\n`;
-                textSegment += `    add ${regDestVal}, ${regOp1}, ${regOp2}  # ${regDestVal} = ${regOp1} + ${regOp2} (${destVar} = ${operand1} + ${operand2})\n`;
-                textSegment += `    sw ${regDestVal}, ${destVar}     # Store result from ${regDestVal} into ${destVar}\n`;
-                
-                tempRegCounter = (tempRegCounter + 3); // Advance counter for the three registers used
+                const r1 = `$t${tempRegCounter % 8}`;
+                const r2 = `$t${(tempRegCounter + 1) % 8}`;
+                const r3 = `$t${(tempRegCounter + 2) % 8}`;
+                textSegment += `    lw ${r1}, ${op1}\n    lw ${r2}, ${op2}\n    add ${r3}, ${r1}, ${r2}\n    sw ${r3}, ${dest}\n`;
+                tempRegCounter += 3;
                 return;
             }
 
-            // Existing: Match variable assignment: destVar = source (literal number or another variable)
-            match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z0-9_]+)/);
+            // === Handle: dest = var + immediate (addi) ===
+            match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\+\s*(\d+)$/);
             if (match) {
-                const destVar = match[1];
-                const source = match[2];
+                const [_, dest, varName, imm] = match;
 
-                if (/^\d+$/.test(source)) { // Source is a literal number
-                    dataSegment[destVar] = `.word ${source}`; 
-                    textSegment += `    li $t${tempRegCounter % 8}, ${source}      # Load immediate ${source} into $t${tempRegCounter % 8} (${destVar} = ${source})\n`;
-                    textSegment += `    sw $t${tempRegCounter % 8}, ${destVar}     # Store content of $t${tempRegCounter % 8} to memory location ${destVar}\n`;
-                } else { // Source is another variable name
+                if (!dataSegment.hasOwnProperty(varName)) {
+                    throw new Error(`Python: Variable '${varName}' used before assignment.`);
+                }
+                if (!dataSegment.hasOwnProperty(dest)) {
+                    dataSegment[dest] = ".word 0";
+                }
+
+                const r1 = `$t${tempRegCounter % 8}`;
+                const r2 = `$t${(tempRegCounter + 1) % 8}`;
+                textSegment += `    lw ${r1}, ${varName}\n    addi ${r2}, ${r1}, ${imm}\n    sw ${r2}, ${dest}\n`;
+                tempRegCounter += 2;
+                return;
+            }
+
+            // === Handle: dest = var - var (sub) ===
+            match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*-\s*([a-zA-Z_][a-zA-Z0-9_]*)$/);
+            if (match) {
+                const [_, dest, op1, op2] = match;
+
+                if (!dataSegment.hasOwnProperty(op1) || !dataSegment.hasOwnProperty(op2)) {
+                    throw new Error(`Python: Variable '${op1}' or '${op2}' used before assignment.`);
+                }
+                if (!dataSegment.hasOwnProperty(dest)) {
+                    dataSegment[dest] = ".word 0";
+                }
+
+                const r1 = `$t${tempRegCounter % 8}`;
+                const r2 = `$t${(tempRegCounter + 1) % 8}`;
+                const r3 = `$t${(tempRegCounter + 2) % 8}`;
+                textSegment += `    lw ${r1}, ${op1}\n    lw ${r2}, ${op2}\n    sub ${r3}, ${r1}, ${r2}\n    sw ${r3}, ${dest}\n`;
+                tempRegCounter += 3;
+                return;
+            }
+
+            // === Handle assignment: dest = source (literal or variable) ===
+            match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z0-9_]+)$/);
+            if (match) {
+                const [_, dest, source] = match;
+
+                if (/^\d+$/.test(source)) {
+                    dataSegment[dest] = `.word ${source}`;
+                    const r = `$t${tempRegCounter % 8}`;
+                    textSegment += `    li ${r}, ${source}\n    sw ${r}, ${dest}\n`;
+                } else {
                     if (!dataSegment.hasOwnProperty(source)) {
                         throw new Error(`Python: Variable '${source}' used before assignment.`);
                     }
-                    if (!dataSegment.hasOwnProperty(destVar)) {
-                        dataSegment[destVar] = ".word 0"; 
+                    if (!dataSegment.hasOwnProperty(dest)) {
+                        dataSegment[dest] = ".word 0";
                     }
-                    textSegment += `    lw $t${tempRegCounter % 8}, ${source}      # Load value of ${source} into $t${tempRegCounter % 8}\n`;
-                    textSegment += `    sw $t${tempRegCounter % 8}, ${destVar}     # Store content of $t${tempRegCounter % 8} (from ${source}) to memory location ${destVar}\n`;
+                    const r = `$t${tempRegCounter % 8}`;
+                    textSegment += `    lw ${r}, ${source}\n    sw ${r}, ${dest}\n`;
                 }
-                tempRegCounter = (tempRegCounter + 1); // Advance counter for the one register used
-                return; 
+                tempRegCounter++;
+                return;
             }
 
-            // Existing: Match print statement: print(var_name)
-            match = line.match(/^print\(([a-zA-Z_][a-zA-Z0-9_]*)\)/);
+            // === Handle print(var) ===
+            match = line.match(/^print\(([a-zA-Z_][a-zA-Z0-9_]*)\)$/);
             if (match) {
                 const varName = match[1];
                 if (!dataSegment.hasOwnProperty(varName)) {
                     throw new Error(`Python: Variable '${varName}' not defined before print.`);
                 }
-                textSegment += `    lw $a0, ${varName}          # Load value of ${varName} into $a0 for printing\n`;
-                textSegment += `    li $v0, 1              # System call code for print_int\n`;
-                textSegment += `    syscall                # Execute print integer syscall\n`;
-                textSegment += `    la $a0, newline        # Load address of newline string into $a0\n`;
-                textSegment += `    li $v0, 4              # System call code for print_string\n`;
-                textSegment += `    syscall                # Execute print string syscall (prints newline)\n`;
-                return; 
+                textSegment += `    lw $a0, ${varName}\n    li $v0, 1\n    syscall\n`;
+                textSegment += `    la $a0, newline\n    li $v0, 4\n    syscall\n`;
+                return;
             }
 
+            // === Fallback: Unsupported ===
             textSegment += `    # Unsupported Python line: ${line}\n`;
         });
-        
+
+        // === Assemble .data and .text ===
         let finalDataSegmentContent = ".data\n";
         for (const varName in dataSegment) {
             finalDataSegmentContent += `${varName}: ${dataSegment[varName]}\n`;
         }
-        
-        let mipsCode = finalDataSegmentContent + "\n" + textSegment;
 
-        mipsCode += "\n    # Exit program\n";
-        mipsCode += "    li $v0, 10             # System call code for exit\n";
-        mipsCode += "    syscall                # Execute exit syscall\n";
-        
+        let mipsCode = finalDataSegmentContent + "\n" + textSegment;
+        mipsCode += "\n    li $v0, 10\n    syscall\n";
         return mipsCode;
     }
+
 
     function parseAndGenerateMips_Java(code) {
         let textSegment = ".text\n.globl main\nmain:\n";
