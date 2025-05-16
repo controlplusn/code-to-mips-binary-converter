@@ -113,7 +113,6 @@ main {
 }
 
 /* Section Styling */
-
 .controls-section {
     position: relative;
     grid-area: control;
@@ -148,6 +147,15 @@ main {
     border: none;
     width: 100%;
     font: var(--font-russo-300);
+}
+
+/* Status Message Styling */
+.status-message {
+    position: absolute;
+    bottom: 100px;
+    margin: auto;
+    pointer-events: none;
+    z-index: 2;
 }
 
 .convert-btn {
@@ -238,6 +246,7 @@ textarea {
 .output-section {
     grid-area: output;
     display: flex;
+    justify-content: center;
     gap: var(--spacing-5);
 }
 
@@ -269,13 +278,4 @@ pre {
 code {
     font: var(--font-cutive) !important;
     line-height: 1.6 !important;
-}
-
-/* Status Message Styling */
-.status-message {
-    position: absolute;
-    bottom: 100px;
-    margin: auto;
-    pointer-events: none;
-    z-index: 2;
 }
