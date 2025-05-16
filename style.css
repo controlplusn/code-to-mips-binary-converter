@@ -69,6 +69,11 @@ html {
 }
 
 
+img {
+    display: block;
+    max-width: 100%;
+}
+
 /* General Body Styles */
 body {
     font: var(--font-russo-400);
@@ -278,4 +283,47 @@ pre {
 code {
     font: var(--font-cutive) !important;
     line-height: 1.6 !important;
+}
+
+footer {
+    margin-top: var(--spacing-5);
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    place-items: center;
+    gap: var(--spacing-2);
+}
+
+.footer-title {
+    grid-column: span 3;
+    font: var(--font-russo-700);
+}
+
+.profile-wrapper {
+    width: 500px;
+    padding: var(--spacing-2);
+    aspect-ratio: 3 / 4;
+    background-color: var(--clr-fg);
+    border-radius: var(--rounded-sm);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: var(--spacing-2);
+    padding-top: 120px;
+}
+
+.profile-wrapper:nth-child(2n) {
+    background-color: var(--clr-select);
+}
+
+.profile-icon>img {
+    border-radius: 50%;
+    width: 200px;
+    aspect-ratio: 1;
+}
+
+.profile-motto {
+    width: 25ch;
+    font: var(--font-cutive);
+    font-style: italic;
 }
