@@ -15,55 +15,57 @@
     <div class="glow"></div>
     <div class="glow right"></div>
     <header>
-        <div class="logo-wrapper">
-            <svg xmlns="http://www.w3.org/2000/svg" width="55" height="55" viewBox="0 0 55 55" fill="none">
-                <g clip-path="url(#clip0_1_86)">
-                    <path
-                        d="M27.6074 0.859375C12.8906 0.859375 0.966797 12.7832 0.966797 27.5C0.966797 42.2168 12.8906 54.1406 27.6074 54.1406C42.3242 54.1406 54.248 42.2168 54.248 27.5C54.248 12.7832 42.3242 0.859375 27.6074 0.859375ZM22.29 41.1211L8.78711 27.6182L22.29 14.1152L26.0713 17.918L23.4717 20.5176L22.2793 19.3252L13.9863 27.6182L22.2793 35.9111L25.1367 33.0537L19.4326 27.3711L22.0537 24.75L30.3467 33.043L22.29 41.1211ZM32.9248 40.8848L29.1436 37.1035L31.7324 34.4824L32.9248 35.6748L41.2178 27.3818L32.9248 19.0889L30.0781 21.9355L35.7822 27.6182L33.1611 30.2393L24.8682 21.9463L32.9248 13.8896L46.4277 27.3926L32.9248 40.8848Z"
-                        fill="white" />
-                </g>
-                <defs>
-                    <clipPath id="clip0_1_86">
-                        <rect width="55" height="55" fill="white" />
-                    </clipPath>
-                </defs>
-            </svg>
-        </div>
         <h1>Code to MIPS & Binary Converter</h1>
     </header>
 
     <main>
-        <section class="controls-section">
-            <div class="control-group-wrapper">
-                <div class="control-group">
-                    <label for="language-select">Select Input Language:</label>
-                    <select id="language-select" name="language-select">
-                        <option value="" disabled selected>--Please choose an option--</option>
-                        <option value="c_cpp">C/C++ (Simplified)</option>
-                        <option value="python">Python (Simplified)</option>
-                        <option value="java">Java (Simplified)</option>
-                    </select>
+        <section class="controls-section gradient-border">
+            <div class="control-wrapper">
+                <div class="control-group-wrapper">
+                    <div class="control-group">
+                        <label for="language-select">Select Input Language:</label>
+                        <select id="language-select" name="language-select">
+                            <option value="" disabled selected>--Please choose an option--</option>
+                            <option value="c_cpp">C/C++ (Simplified)</option>
+                            <option value="python">Python (Simplified)</option>
+                            <option value="java">Java (Simplified)</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="example-select">Load Example:</label>
+                        <select id="example-select" name="example-select">
+                            <option value="" disabled selected>--Select an example--</option>
+                            <!-- Examples will be populated by JS -->
+                        </select>
+                    </div>
                 </div>
-                <div class="control-group">
-                    <label for="example-select">Load Example:</label>
-                    <select id="example-select" name="example-select">
-                        <option value="" disabled selected>--Select an example--</option>
-                        <!-- Examples will be populated by JS -->
-                    </select>
+                <div class="status-button-wrapper">
+                    <p class="status-message" id="status-message"></p>
+                    <button id="convert-btn" class="convert-btn">Convert to MIPS & Binary</button>
                 </div>
             </div>
-            <button id="convert-btn" class="convert-btn">Convert to MIPS & Binary</button>
-
-            <p class="status-message" id="status-message"></p>
         </section>
 
-        <section class="input-section">
+        <section class="input-section gradient-border">
             <!-- For Prism.js, the textarea might be hidden and a pre/code block used for display -->
             <textarea id="code-input" class="language-none" rows="15" placeholder="Enter your code here..."></textarea>
         </section>
 
-        <section id="output-section" class="output-section">
-            <div class="output-area binary">
+        <section class="output-section mips gradient-border">
+            <div class="output-wrapper">
+                <div class="output-header">
+                    <label for="mips-output">MIPS Assembly Output:</label>
+                    <button class="copy-btn" data-target="mips-output">Copy</button>
+                </div>
+                <pre id="mips-container">
+                    <div class="code-container"><code id="mips-output" class="language-mips">; MIPS code will appear
+                            here...</code></div>
+                </pre>
+            </div>
+        </section>
+
+        <section class="output-section binary gradient-border">
+            <div class="output-wrapper">
                 <div class="output-header">
                     <label for="binary-output">Binary (Machine Code) Output:</label>
                     <button class="copy-btn" data-target="binary-output">Copy</button>
@@ -84,74 +86,134 @@
 
     <footer>
         <h2 class="footer-title">Meet the team</h2>
-        <div class="profile-wrapper">
-            <div class="profile-icon">
-                <img src="images/ziac.png" alt="">
+        <div class="profile-cards">
+            <div class="profile-card gradient-border ziac">
+                <div class="profile-image"></div>
+                <div class="blur-overlay"></div>
+
+                <div class="profile-wrapper">
+                    <div class="profile-name">
+                        Danielle Ziac Abril
+                        <a href="https://github.com/DanielleZiac" target="_blank" class="github">
+                            <img src="images/github-mark.png" alt="GitHub logo">
+                        </a>
+                        <a href="https://batstateu.edu.ph/" target="_blank" class="bsu">
+                            <img src="images/bsu-logo.png" alt="BSU logo">
+                        </a>
+                    </div>
+                    <p class="profile-description">
+                        UI/UX Designer, crafted an intuitive design that made code input
+                        and output simple and accessible.
+                    </p>
+                </div>
             </div>
-            <div class="profile-name">
-                Abril, Danielle Ziac R.
+            <div class="profile-card gradient-border timothy">
+                <div class="profile-image"></div>
+                <div class="blur-overlay"></div>
+
+                <div class="profile-wrapper">
+                    <div class="profile-name">
+                        Timothy Dave Alimagno
+                        <a href="https://github.com/mothy-08" target="_blank" class="github">
+                            <img src="images/github-mark.png" alt="GitHub logo">
+                        </a>
+                        <a href="https://batstateu.edu.ph/" target="_blank" class="bsu">
+                            <img src="images/bsu-logo.png" alt="BSU logo">
+                        </a>
+                    </div>
+                    <p class="profile-description">
+                        Frontend Developer, built an interactive and responsive user
+                        interface.
+                    </p>
+                </div>
             </div>
-            <div class="profile-motto">
-                <p>"Ipinanganak ako ng walang kakambal kaya mahalin mo ako ng walang karibal."</p>
+            <div class="profile-card gradient-border carle">
+                <div class="profile-image"></div>
+                <div class="blur-overlay"></div>
+
+                <div class="profile-wrapper">
+                    <div class="profile-name">
+                        Carle Francis Medina
+                        <a href="https://github.com/controlplusn" target="_blank" class="github">
+                            <img src="images/github-mark.png" alt="GitHub logo">
+                        </a>
+                        <a href="https://batstateu.edu.ph/" target="_blank" class="bsu">
+                            <img src="images/bsu-logo.png" alt="BSU logo">
+                        </a>
+                    </div>
+                    <p class="profile-description">
+                        Project Manager, coordinated the team and ensured timely delivery
+                        of the application.
+                    </p>
+                </div>
             </div>
-        </div>
-        <div class="profile-wrapper">
-            <div class="profile-icon">
-                <img src="images/timothy.png" alt="">
+            <div class="profile-card gradient-border hersey">
+                <div class="profile-image"></div>
+                <div class="blur-overlay"></div>
+
+                <div class="profile-wrapper">
+                    <div class="profile-name">
+                        Hersey Anne Odaso
+                        <a href="https://github.com/herseyy" target="_blank" class="github">
+                            <img src="images/github-mark.png" alt="GitHub logo">
+                        </a>
+                        <a href="https://batstateu.edu.ph/" target="_blank" class="bsu">
+                            <img src="images/bsu-logo.png" alt="BSU logo">
+                        </a>
+                    </div>
+                    <p class="profile-description">
+                        Backend Developer, implemented the core logic that converts high-level code into MIPS and
+                        binary.
+                    </p>
+                </div>
             </div>
-            <div class="profile-name">
-                Alimagno, Timothy Dave C.
+            <div class="profile-card gradient-border dorothy">
+                <div class="profile-image"></div>
+                <div class="blur-overlay"></div>
+
+                <div class="profile-wrapper">
+                    <div class="profile-name">
+                        Dorothy Salva
+                        <a href="https://github.com/thea23salva" target="_blank" class="github">
+                            <img src="images/github-mark.png" alt="GitHub logo">
+                        </a>
+                        <a href="https://batstateu.edu.ph/" target="_blank" class="bsu">
+                            <img src="images/bsu-logo.png" alt="BSU logo">
+                        </a>
+                    </div>
+                    <p class="profile-description">
+                        Documentation, created clear user manuals and technical references to support
+                        the project.
+                    </p>
+                </div>
             </div>
-            <div class="profile-motto">
-                <p>"Bakit ba kayo nagagalit sa mga tamad, eh wala nga silang ginagawa?"</p>
-            </div>
-        </div>
-        <div class="profile-wrapper">
-            <div class="profile-icon">
-                <img src="images/carle.png" alt="">
-            </div>
-            <div class="profile-name">
-                Medina, Carle Francis L.
-            </div>
-            <div class="profile-motto">
-                <p>"Luto na ang sinaing, pwede na akong kainin."</p>
-            </div>
-        </div>
-        <div class="profile-wrapper">
-            <div class="profile-icon">
-                <img src="images/hersey.png" alt="">
-            </div>
-            <div class="profile-name">
-                Odasco, Hersey Anne
-            </div>
-            <div class="profile-motto">
-                <p>"Isa, dalawa, tatlo..."</p>
-            </div>
-        </div>
-        <div class="profile-wrapper">
-            <div class="profile-icon">
-                <img src="images/dorothy.png" alt="">
-            </div>
-            <div class="profile-name">
-                Salva, Dorothy
-            </div>
-            <div class="profile-motto">
-                <p>"Kung kaya ng iba, pagawa mo sa kanila."</p>
-            </div>
-        </div>
-        <div class="profile-wrapper">
-            <div class="profile-icon">
-                <img src="images/vex.png" alt="">
-            </div>
-            <div class="profile-name">
-                Sumang, Vex Ivan
-            </div>
-            <div class="profile-motto">
-                <p>"Baby, handa akong maging siomai kapag tinotoyo ka..."</p>
+            <div class="profile-card gradient-border vex">
+                <div class="profile-image"></div>
+                <div class="blur-overlay"></div>
+
+                <div class="profile-wrapper">
+                    <div class="profile-name">
+                        Vex Ivan Sumang
+                        <a href="https://github.com/Xevastian" target="_blank" class="github">
+                            <img src="images/github-mark.png" alt="GitHub logo">
+                        </a>
+                        <a href="https://batstateu.edu.ph/" target="_blank" class="bsu">
+                            <img src="images/bsu-logo.png" alt="BSU logo">
+                        </a>
+                    </div>
+                    <p class="profile-description">
+                        Full Stack Developer, managing both frontend and backend
+                        integration for smooth functionality.
+                    </p>
+                </div>
             </div>
         </div>
     </footer>
 
+    <button class="go-top" id="go-top">
+        ^
+        <span class="tooltip">Go to top</span>
+    </button>
     <!-- Prism JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
     <script

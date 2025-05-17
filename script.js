@@ -7,9 +7,33 @@ document.addEventListener("DOMContentLoaded", () => {
     const statusMessage = document.getElementById("status-message");
     const copyBtns = document.querySelectorAll(".copy-btn");
     const exampleSelect = document.getElementById("example-select");
+
     const outputSection = document.getElementById("output-section");
     const mipsContainer = document.getElementById("mips-container");
     const binaryContainer = document.getElementById("binary-container");
+
+    const goTopButton = document.getElementById("go-top");
+
+    window.addEventListener("scroll", () => {
+        const scrollY = window.scrollY;
+        const docHeight = document.documentElement.scrollHeight;
+        const winHeight = window.innerHeight;
+
+        const bottomReached = scrollY + winHeight >= docHeight - 10;
+
+        if (bottomReached) {
+            goTopButton.classList.add("show");
+        } else {
+            goTopButton.classList.remove("show");
+        }
+    });
+
+    goTopButton.addEventListener("click", () => {
+        window.scrollTo({
+            top: 0,
+            behavior: "smooth"
+        });
+    });
 
     // --- Example Code Snippets ---
     const examples = {
@@ -32,7 +56,6 @@ document.addEventListener("DOMContentLoaded", () => {
         // R-type (opcode 000000)
         "add": { opcode: "000000", funct: "100000" },
         "sub": { opcode: "000000", funct: "100010" },
-        "mul": { opcode: "011100", funct: "000010" },
         "slt": { opcode: "000000", funct: "101010" },
         // I-type
         "addi": { opcode: "001000" },
@@ -62,7 +85,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function decToBinary(dec, bits) {
         let bin = (dec >>> 0).toString(2);
-        if (dec < 0 && bits === 16) {
+        if (dec < 0 && bits === 16) { // Handle negative for 16-bit immediate (e.g. branch offsets)
             bin = ((1 << bits) + dec).toString(2);
         }
         while (bin.length < bits) {
@@ -117,10 +140,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Event listener for the convert button
     convertBtn.addEventListener("click", () => {
-        outputSection.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start'
-        })
 
         const selectedLanguage = languageSelect.value;
         const sourceCode = codeInput.value.trim();
@@ -129,8 +148,6 @@ document.addEventListener("DOMContentLoaded", () => {
         binaryOutput.textContent = "";
         statusMessage.textContent = "";
         statusMessage.style.color = "";
-        mipsContainer.replaceChildren();
-        mipsCodes = {};
 
         if (!selectedLanguage) {
             statusMessage.textContent = "Error: Please select an input language.";
@@ -147,7 +164,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         setTimeout(() => {
             try {
-                const mipsResult = convertToMips(sourceCode, selectedLanguage);   // mipsCodes = {idx: []}
+                const mipsResult = convertToMips(sourceCode, selectedLanguage);
                 const binaryResult = convertMipsToBinary(mipsResult);
 
                 mipsOutput.textContent = mipsResult;
@@ -180,18 +197,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const lines = code.split("\n").map(line => line.trim()).filter(line => line && !line.startsWith(language == "python" ? "#" : "//"));
 
-        const mipsCodes = {}; // classname: [codes];
-
-        lines.forEach((line, idx) => {
+        lines.forEach(line => {
             let match;
-            const divParent = document.createElement("div");
-            divParent.className = "code-container";
-            const code = document.createElement("code");
-            const comments = document.createElement("code");
-
-            if (!mipsCodes[idx]) {
-                mipsCodes[idx] = [];
-            }
 
             if (language == "C/C++" || language == "Java") {
                 // int x;
@@ -200,19 +207,22 @@ document.addEventListener("DOMContentLoaded", () => {
                     const varName = match[1];
                     if (dataSegment[varName]) throw new Error(`${language}: Variable '${varName}' already declared.`);
                     dataSegment[varName] = ".word 0";
+                    textSegment += `\n    # int ${varName}; (declared in .data)\n`;
                     return;
-              }
+                }
 
-                // int x = [var/num/expression] || x = [var/num/expression]
-                match = line.match(/^(?:int\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_0-9\s+\-\*]+);/);
+                // int x = [var/num/expression]
+                match = line.match(/^(?:int\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_0-9\s+\-]+);/);
                 if (match) {
                     const destVar = match[1];
                     const expression = match[2].trim();
-                    const parts = expression.split(/\s*([+\-\*])\s*/); // Split by + or - or *
+                    const parts = expression.split(/\s*([+\-])\s*/); // Split by + or -
 
                     if (line.includes("int")) {
                         if (dataSegment[destVar]) throw new Error(`${language}: Variable '${destVar}' already declared.`);
                         dataSegment[destVar] = ".word 0";
+
+                        textSegment += `\n    # int ${destVar} = ${expression}\n`;
                     }
 
                     let currentRegister = "$t0";
@@ -220,15 +230,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     let registerCounter = 1;
 
                     if (/^\d+$/.test(firstOperand)) {
-                        code.textContent += `\tli ${currentRegister}, ${firstOperand}\n`;
-                        comments.textContent += `# Load initial value\n`;
-
-                        mipsCodes[idx].push(`li ${currentRegister}, ${firstOperand}`);
+                        textSegment += `    li ${currentRegister}, ${firstOperand}      # Load initial value\n`;
                     } else if (dataSegment.hasOwnProperty(firstOperand)) {
-                        code.textContent += `\tlw ${currentRegister}, ${firstOperand}\n`;
-                        comments.textContent += `# Load ${firstOperand}\n`;
-
-                        mipsCodes[idx].push(`lw ${currentRegister}, ${firstOperand}`);
+                        textSegment += `    lw ${currentRegister}, ${firstOperand}      # Load ${firstOperand}\n`;
                     } else {
                         throw new Error(`${language}: Variable or immediate '${firstOperand}' not declared.`);
                     }
@@ -241,56 +245,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         if (/^\d+$/.test(operand)) {
                             if (operator === "+") {
-                                code.textContent += `\taddi ${nextRegister}, ${currentRegister}, ${operand}\n`;
-                                comments.textContent += `# ${operator} with immediate value ${operand}\n`;
-
-                                mipsCodes[idx].push(`addi ${nextRegister}, ${currentRegister}, ${operand}`);
+                                textSegment += `    addi ${nextRegister}, ${currentRegister}, ${operand}   # ${operator} with immediate value ${operand}\n`;
                             } else if (operator === "-") {
-                                code.textContent += `\taddi ${nextRegister}, ${currentRegister}, -${operand}\n`;
-                                comments.textContent += `# ${operator} with immediate value ${operand}\n`;
-
-                                mipsCodes[idx].push(`addi ${nextRegister}, ${currentRegister}, -${operand}`);
+                                textSegment += `    addi ${nextRegister}, ${currentRegister}, -${operand}  # ${operator} with immediate value ${operand}\n`;
                             }
                         } else if (dataSegment.hasOwnProperty(operand)) {
-                            code.textContent += `\tlw ${nextRegister}, ${operand}\n`;
-                            comments.textContent += `# Load ${operand}\n`;
-
-                            mipsCodes[idx].push(`lw ${nextRegister}, ${operand}`);
+                            textSegment += `    lw ${nextRegister}, ${operand}      # Load ${operand}\n`;
                             if (operator === "+") {
-                                code.textContent += `\tadd ${nextRegister}, ${currentRegister}, ${nextRegister}\n`;
-                                comments.textContent += `# Add ${operand}\n`;
-
-                                mipsCodes[idx].push(`add ${nextRegister}, ${currentRegister}, ${nextRegister}`);
+                                textSegment += `    add ${nextRegister}, ${currentRegister}, ${nextRegister}      # Add ${operand}\n`;
                             } else if (operator === "-") {
-                                code.textContent += `\tsub ${nextRegister}, ${currentRegister}, ${nextRegister}\n`;
-                                comments.textContent += `# Subtract ${operand}\n`;
-
-                                mipsCodes[idx].push(`sub ${nextRegister}, ${currentRegister}, ${nextRegister}`);
-                            } else if (operator === "*") {
-                                code.textContent += `\tmul ${nextRegister}, ${currentRegister}, ${nextRegister}\n`;
-                                comments.textContent += `# Multiply ${operand}\n`;
-
-                                mipsCodes[idx].push(`mul ${nextRegister}, ${currentRegister}, ${nextRegister}`);
+                                textSegment += `    sub ${nextRegister}, ${currentRegister}, ${nextRegister}      # Subtract ${operand}\n`;
                             }
                         } else {
                             throw new Error(`${language}: Variable or immediate '${operand}' not declared.`);
                         }
                         currentRegister = nextRegister; // Update currentRegister for the next operation
                     }
-                    code.textContent += `\tsw ${currentRegister}, ${destVar}\n`;
-                    comments.textContent += "# Store final result\n";
-
-                    mipsCodes[idx].push(`sw ${currentRegister}, ${destVar}`);
-
-                    divParent.appendChild(code);
-                    divParent.appendChild(comments);
-                    mipsContainer.appendChild(divParent);
+                    textSegment += `    sw ${currentRegister}, ${destVar}         # Store final result\n`;
                     return;
                 }
 
                 // print(x);
                 if (language == "C/C++") {
-                    match = line.match(/^print\(([a-zA-Z_][a-zA-Z0-9_]*)\);/) || line.match(/^cout\s*<<\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*;$/);
+                    match = line.match(/^print\(([a-zA-Z_][a-zA-Z0-9_]*)\);/);
                 } else {
                     match = line.match(/^System\.out\.println\(([a-zA-Z_][a-zA-Z0-9_]*)\);/);
                 }
@@ -298,33 +275,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (match) {
                     const varName = match[1];
                     if (!dataSegment.hasOwnProperty(varName)) throw new Error(`${language}: Variable '${varName}' not declared before print.`);
-                    code.textContent += `\tlw $a0, ${varName}\n`;
-                    comments.textContent += `# Load ${varName} to print\n`;
-                    mipsCodes[idx].push(`lw $a0, ${varName}`);
-                    
-                    code.textContent += `\tli $v0, 1\n`;
-                    comments.textContent += "# Syscall for print_int\n";
-                    mipsCodes[idx].push(`li $v0, 1`);
-
-                    code.textContent += `\tsyscall\n`;
-                    comments.textContent += "# Execute print\n";
-                    mipsCodes[idx].push(`syscall`);
-
-                    code.textContent += `\tla $a0, newline\n`;
-                    comments.textContent += "# Load address of newline\n";
-                    mipsCodes[idx].push(`la $a0, newline`);
-
-                    code.textContent += `\tli $v0, 4\n`;
-                    comments.textContent += "# Syscall for print_string\n";
-                    mipsCodes[idx].push(`li $v0, 4`);
-
-                    code.textContent += `\tsyscall\n`;
-                    comments.textContent += "# Print newline\n";
-                    mipsCodes[idx].push(`syscall`);
-
-                    divParent.appendChild(code);
-                    divParent.appendChild(comments);
-                    mipsContainer.appendChild(divParent);
+                    textSegment += `    lw $a0, ${varName}          # Load ${varName} to print\n`;
+                    textSegment += `    li $v0, 1              # Syscall for print_int\n`;
+                    textSegment += `    syscall                # Execute print\n`;
+                    textSegment += `    la $a0, newline        # Load address of newline\n`;
+                    textSegment += `    li $v0, 4              # Syscall for print_string\n`;
+                    textSegment += `    syscall                # Print newline\n`;
                     return;
                 }
             } else if (language == "Python") {
@@ -345,15 +301,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     // Load the first operand into the current register
                     if (/^\d+$/.test(firstOperand)) {
-                        code.textContent += `\tli ${currentRegister}, ${firstOperand}\n`;
-                        comments.textContent += `# Load ${firstOperand}\n`;
-
-                        mipsCodes[idx].push(`li ${currentRegister}, ${firstOperand}`);
+                        textSegment += `    li ${currentRegister}, ${firstOperand}      # Load ${firstOperand}\n`;
                     } else if (dataSegment.hasOwnProperty(firstOperand)) {
-                        code.textContent += `\tlw ${currentRegister}, ${firstOperand}\n`;
-                        comments.textContent += `# Load ${firstOperand}\n`;
-
-                        mipsCodes[idx].push(`lw ${currentRegister}, ${firstOperand}`);
+                        textSegment += `    lw ${currentRegister}, ${firstOperand}      # Load ${firstOperand}\n`;
                     } else {
                         throw new Error(`${language}: Variable '${firstOperand}' not declared.`);
                     }
@@ -367,39 +317,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         if (/^\d+$/.test(operand)) {
                             if (operator === "+") {
-                                code.textContent += `\taddi ${nextRegister}, ${currentRegister}, ${operand}\n`;
-                                comments.textContent += `# ${operator} ${operand}\n`;
-
-                                mipsCodes[idx].push(`addi ${nextRegister}, ${currentRegister}, ${operand}`);
+                                textSegment += `    addi ${nextRegister}, ${currentRegister}, ${operand}   # ${operator} ${operand}\n`;
                             } else if (operator === "-") {
-                                code.textContent += `\taddi ${nextRegister}, ${currentRegister}, -${operand}\n`;
-                                comments.textContent += `# ${operator} ${operand}\n`;
-
-                                mipsCodes[idx].push(`addi ${nextRegister}, ${currentRegister}, -${operand}`);
+                                textSegment += `    addi ${nextRegister}, ${currentRegister}, -${operand}  # ${operator} ${operand}\n`;
                             }
                         } else if (dataSegment.hasOwnProperty(operand)) {
-                            code.textContent += `\tlw ${nextRegister}, ${operand}\n`;
-                            comments.textContent += `# Load ${operand}\n`;
-
-                            mipsCodes[idx].push(`lw ${nextRegister}, ${operand}`);
-
-                            code.textContent += `\t${operator === "+" ? "add" : "sub"} ${nextRegister}, ${currentRegister}, ${nextRegister}\n`;
-                            comments.textContent += `# ${operator} ${operand}\n`;
-
-                            mipsCodes[idx].push(`${operator === "+" ? "add" : "sub"} ${nextRegister}, ${currentRegister}, ${nextRegister}`);
+                            textSegment += `    lw ${nextRegister}, ${operand}      # Load ${operand}\n`;
+                            if (operator === "+") {
+                                textSegment += `    add ${nextRegister}, ${currentRegister}, ${nextRegister}      # ${operator} ${operand}\n`;
+                            } else if (operator === "-") {
+                                textSegment += `    sub ${nextRegister}, ${currentRegister}, ${nextRegister}      # ${operator} ${operand}\n`;
+                            }
                         } else {
                             throw new Error(`${language}: Variable '${operand}' not declared.`);
                         }
                         currentRegister = nextRegister; // Update currentRegister for the next operation
                     }
-                    code.textContent += `\tsw ${currentRegister}, ${destVar}\n`;
-                    comments.textContent += `# Store result in ${destVar}\n`;
-
-                    mipsCodes[idx].push(`sw ${currentRegister}, ${destVar}`);
-
-                    divParent.appendChild(code);
-                    divParent.appendChild(comments);
-                    mipsContainer.appendChild(divParent);
+                    textSegment += `    sw ${currentRegister}, ${destVar}         # Store result in ${destVar}\n`;
                     return;
                 }
 
@@ -410,43 +344,18 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (!dataSegment.hasOwnProperty(varName)) {
                         throw new Error(`Python: Variable '${varName}' not defined before print.`);
                     }
-                    code.textContent += `\tlw $a0, ${varName}\n`;
-                    comments.textContent += `# Load ${varName} to print\n`;
-                    mipsCodes[idx].push(`lw $a0, ${varName}`);
-                    
-                    code.textContent += `\tli $v0, 1\n`;
-                    comments.textContent += "# Syscall for print_int\n";
-                    mipsCodes[idx].push(`li $v0, 1`);
-
-                    code.textContent += `\tsyscall\n`;
-                    comments.textContent += "# Execute print\n";
-                    mipsCodes[idx].push(`syscall`);
-
-                    code.textContent += `\tla $a0, newline\n`;
-                    comments.textContent += "# Load address of newline\n";
-                    mipsCodes[idx].push(`la $a0, newline`);
-
-                    code.textContent += `\tli $v0, 4\n`;
-                    comments.textContent += "# Syscall for print_string\n";
-                    mipsCodes[idx].push(`li $v0, 4`);
-
-                    code.textContent += `\tsyscall\n`;
-                    comments.textContent += "# Print newline\n";
-                    mipsCodes[idx].push(`syscall`);
-
-                    divParent.appendChild(code);
-                    divParent.appendChild(comments);
-                    mipsContainer.appendChild(divParent);
+                    textSegment += `    lw $a0, ${varName}\n    li $v0, 1\n    syscall\n`;
+                    textSegment += `    la $a0, newline\n    li $v0, 4\n    syscall\n`;
                     return;
                 }
+
+                // === Fallback: Unsupported ===
+                textSegment += `    # Unsupported Python line: ${line}\n`;
             } else {
                 console.log("language invalid");
             }
-            
-            // === Fallback: Unsupported ===
-            code.textContent += `\t# Unsupported ${language} line: ${line}\n`;
-            divParent.appendChild(code);
-            mipsContainer.appendChild(divParent);
+
+            textSegment += `    # Unsupported ${language} line: ${line}\n`;
         })
 
         let finalDataSegmentContent = ".data\n";
@@ -460,24 +369,16 @@ document.addEventListener("DOMContentLoaded", () => {
         codeHeader.textContent += "\n.text\n.globl main\nmain:\n";
         mipsContainer.insertBefore(codeHeader, mipsContainer.firstChild);
 
-        const divFooter = document.createElement("div");
-        const codeFooter = document.createElement("code");
-        const codeFooterComments = document.createElement("code");
-        divFooter.className = "code-container";
-        
-        codeFooter.textContent += `\tli $v0, 10\n`;
-        codeFooterComments.textContent += `# Syscall for exit\n`;
 
-        codeFooter.textContent += `\tsyscall\n`;
-        codeFooterComments.textContent += `# Execute exit\n`;
-        
-        divFooter.appendChild(codeFooter);
-        divFooter.appendChild(codeFooterComments);
-        mipsContainer.appendChild(divFooter);
-        return mipsCodes;
+        mipsCode += "\n    # Exit program\n";
+        mipsCode += "    li $v0, 10             # Syscall for exit\n";
+        mipsCode += "    syscall                # Execute exit\n";
+        return mipsCode;
     }
 
+
     function convertToMips(code, language) {
+        console.log(`Converting ${language} code to MIPS:`);
         if (code.toLowerCase().includes("testerror")) {
             throw new Error("Simulated critical error in MIPS conversion.");
         }
@@ -495,7 +396,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function convertMipsToBinary(mipsCode) {
-        console.log(mipsCode)
+        console.log("Converting MIPS to Binary:");
+        let binaryRepresentation = "// Binary Representation (Simplified - Educational Purposes)\n";
+        const lines = mipsCode.split("\n");
+
+
         let currentAddress = 0x00400000;
         const labelAddresses = {};
         const dataLabelAddresses = {};
@@ -508,6 +413,7 @@ document.addEventListener("DOMContentLoaded", () => {
         Object.keys(mipsCode).map(key => {
             const parentDiv = document.createElement("div");
             parentDiv.className = "code-container";
+
 
             for (var i = 0; i < mipsCode[key].length; i++) {
                 const codeBinary = document.createElement("code");
