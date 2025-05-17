@@ -282,7 +282,13 @@ pre {
 
 code {
     font: var(--font-cutive) !important;
+    background: var(--clr-code) !important;
     line-height: 1.6 !important;
+}
+
+.code-container {
+    display: flex;
+    justify-content: space-between;
 }
 
 footer {

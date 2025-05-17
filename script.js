@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const copyBtns = document.querySelectorAll(".copy-btn");
     const exampleSelect = document.getElementById("example-select");
     const outputSection = document.getElementById("output-section");
+    const mipsContainer = document.getElementById("mips-container");
 
     // --- Example Code Snippets ---
     const examples = {
@@ -59,7 +60,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function decToBinary(dec, bits) {
         let bin = (dec >>> 0).toString(2);
-        if (dec < 0 && bits === 16) { // Handle negative for 16-bit immediate (e.g. branch offsets)
+        if (dec < 0 && bits === 16) {
             bin = ((1 << bits) + dec).toString(2);
         }
         while (bin.length < bits) {
@@ -126,6 +127,7 @@ document.addEventListener("DOMContentLoaded", () => {
         binaryOutput.textContent = "";
         statusMessage.textContent = "";
         statusMessage.style.color = "";
+        mipsContainer.replaceChildren();
 
         if (!selectedLanguage) {
             statusMessage.textContent = "Error: Please select an input language.";
@@ -175,9 +177,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const lines = code.split("\n").map(line => line.trim()).filter(line => line && !line.startsWith(language == "python" ? "#" : "//"));
 
-        lines.forEach(line => {
+        const mipsCodes = {}; // classname: [codes];
+
+        lines.forEach((line, idx) => {
             let match;
-            
+            const divParent = document.createElement("div");
+            divParent.className = "code-container";
+            const code = document.createElement("code");
+            const comments = document.createElement("code");
+
             if (language == "C/C++" || language == "Java") {
                 // int x;
                 match = line.match(/^int\s+([a-zA-Z_][a-zA-Z0-9_]*);/);
@@ -185,11 +193,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     const varName = match[1];
                     if (dataSegment[varName]) throw new Error(`${language}: Variable '${varName}' already declared.`);
                     dataSegment[varName] = ".word 0";
-                    textSegment += `\n    # int ${varName}; (declared in .data)\n`;
                     return;
                 }
 
-                // int x = [var/num/expression]
+                // int x = [var/num/expression] || x = [var/num/expression]
                 match = line.match(/^(?:int\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_0-9\s+\-]+);/);
                 if (match) {
                     const destVar = match[1];
@@ -199,8 +206,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (line.includes("int")) {
                         if (dataSegment[destVar]) throw new Error(`${language}: Variable '${destVar}' already declared.`);
                         dataSegment[destVar] = ".word 0";
-
-                        textSegment += `\n    # int ${destVar} = ${expression}\n`;
                     }
 
                     let currentRegister = "$t0";
@@ -208,9 +213,11 @@ document.addEventListener("DOMContentLoaded", () => {
                     let registerCounter = 1;
 
                     if (/^\d+$/.test(firstOperand)) {
-                        textSegment += `    li ${currentRegister}, ${firstOperand}      # Load initial value\n`;
+                        code.textContent += `\tli ${currentRegister}, ${firstOperand}\n`;
+                        comments.textContent += `# Load initial value\n`;
                     } else if (dataSegment.hasOwnProperty(firstOperand)) {
-                        textSegment += `    lw ${currentRegister}, ${firstOperand}      # Load ${firstOperand}\n`;
+                        code.textContent += `\tlw ${currentRegister}, ${firstOperand}\n`;
+                        comments.textContent += `# Load ${firstOperand}\n`;
                     } else {
                         throw new Error(`${language}: Variable or immediate '${firstOperand}' not declared.`);
                     }
@@ -223,29 +230,38 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         if (/^\d+$/.test(operand)) {
                             if (operator === "+") {
-                                textSegment += `    addi ${nextRegister}, ${currentRegister}, ${operand}   # ${operator} with immediate value ${operand}\n`;
+                                code.textContent += `\taddi ${nextRegister}, ${currentRegister}, ${operand}\n`;
+                                comments.textContent += `# ${operator} with immediate value ${operand}\n`;
                             } else if (operator === "-") {
-                                textSegment += `    addi ${nextRegister}, ${currentRegister}, -${operand}  # ${operator} with immediate value ${operand}\n`;
+                                code.textContent += `\taddi ${nextRegister}, ${currentRegister}, -${operand}\n`;
+                                comments.textContent += `# ${operator} with immediate value ${operand}\n`;
                             }
                         } else if (dataSegment.hasOwnProperty(operand)) {
-                            textSegment += `    lw ${nextRegister}, ${operand}      # Load ${operand}\n`;
+                            code.textContent += `\tlw ${nextRegister}, ${operand}\n`;
+                            comments.textContent += `# Load ${operand}\n`;
                             if (operator === "+") {
-                                textSegment += `    add ${nextRegister}, ${currentRegister}, ${nextRegister}      # Add ${operand}\n`;
+                                code.textContent += `\tadd ${nextRegister}, ${currentRegister}, ${nextRegister}\n`;
+                                comments.textContent += `# Add ${operand}\n`;
                             } else if (operator === "-") {
-                                textSegment += `    sub ${nextRegister}, ${currentRegister}, ${nextRegister}      # Subtract ${operand}\n`;
+                                code.textContent += `\tsub ${nextRegister}, ${currentRegister}, ${nextRegister}\n`;
+                                comments.textContent += `# Subtract ${operand}\n`;
                             }
                         } else {
                             throw new Error(`${language}: Variable or immediate '${operand}' not declared.`);
                         }
                         currentRegister = nextRegister; // Update currentRegister for the next operation
                     }
-                    textSegment += `    sw ${currentRegister}, ${destVar}         # Store final result\n`;
+                    code.textContent += `\tsw ${currentRegister}, ${destVar}\n`;
+                    comments.textContent += "# Store final result\n";
+                    divParent.appendChild(code);
+                    divParent.appendChild(comments);
+                    mipsContainer.appendChild(divParent);
                     return;
                 }
 
                 // print(x);
                 if (language == "C/C++") {
-                    match = line.match(/^print\(([a-zA-Z_][a-zA-Z0-9_]*)\);/);
+                    match = line.match(/^print\(([a-zA-Z_][a-zA-Z0-9_]*)\);/) || line.match(/^cout\s*<<\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*;$/);
                 } else {
                     match = line.match(/^System\.out\.println\(([a-zA-Z_][a-zA-Z0-9_]*)\);/);
                 }
@@ -253,12 +269,27 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (match) {
                     const varName = match[1];
                     if (!dataSegment.hasOwnProperty(varName)) throw new Error(`${language}: Variable '${varName}' not declared before print.`);
-                    textSegment += `    lw $a0, ${varName}          # Load ${varName} to print\n`;
-                    textSegment += `    li $v0, 1              # Syscall for print_int\n`;
-                    textSegment += `    syscall                # Execute print\n`;
-                    textSegment += `    la $a0, newline        # Load address of newline\n`;
-                    textSegment += `    li $v0, 4              # Syscall for print_string\n`;
-                    textSegment += `    syscall                # Print newline\n`;
+                    code.textContent += `\tlw $a0, ${varName}\n`;
+                    comments.textContent += `# Load ${varName} to print\n`;
+                    
+                    code.textContent += `\tli $v0, 1\n`;
+                    comments.textContent += "# Syscall for print_int\n";
+
+                    code.textContent += `\tsyscall\n`;
+                    comments.textContent += "# Execute print\n";
+
+                    code.textContent += `\tla $a0, newline\n`;
+                    comments.textContent += "# Load address of newline\n";
+
+                    code.textContent += `\tli $v0, 4\n`;
+                    comments.textContent += "# Syscall for print_string\n";
+
+                    code.textContent += `\tsyscall\n`;
+                    comments.textContent += "# Print newline\n";
+
+                    divParent.appendChild(code);
+                    divParent.appendChild(comments);
+                    mipsContainer.appendChild(divParent);
                     return;
                 }
             } else if (language == "Python") {
@@ -279,9 +310,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     // Load the first operand into the current register
                     if (/^\d+$/.test(firstOperand)) {
-                        textSegment += `    li ${currentRegister}, ${firstOperand}      # Load ${firstOperand}\n`;
+                        textSegment += `\tli ${currentRegister}, ${firstOperand}\t\t# Load ${firstOperand}\n`;
                     } else if (dataSegment.hasOwnProperty(firstOperand)) {
-                        textSegment += `    lw ${currentRegister}, ${firstOperand}      # Load ${firstOperand}\n`;
+                        textSegment += `\tlw ${currentRegister}, ${firstOperand}\t\t# Load ${firstOperand}\n`;
                     } else {
                         throw new Error(`${language}: Variable '${firstOperand}' not declared.`);
                     }
@@ -295,23 +326,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         if (/^\d+$/.test(operand)) {
                             if (operator === "+") {
-                                textSegment += `    addi ${nextRegister}, ${currentRegister}, ${operand}   # ${operator} ${operand}\n`;
+                                textSegment += `\taddi ${nextRegister}, ${currentRegister}, ${operand}\t\t# ${operator} ${operand}\n`;
                             } else if (operator === "-") {
-                                textSegment += `    addi ${nextRegister}, ${currentRegister}, -${operand}  # ${operator} ${operand}\n`;
+                                textSegment += `\taddi ${nextRegister}, ${currentRegister}, -${operand}\t\t# ${operator} ${operand}\n`;
                             }
                         } else if (dataSegment.hasOwnProperty(operand)) {
                             textSegment += `    lw ${nextRegister}, ${operand}      # Load ${operand}\n`;
                             if (operator === "+") {
-                                textSegment += `    add ${nextRegister}, ${currentRegister}, ${nextRegister}      # ${operator} ${operand}\n`;
+                                textSegment += `\tadd ${nextRegister}, ${currentRegister}, ${nextRegister}\t\t# ${operator} ${operand}\n`;
                             } else if (operator === "-") {
-                                textSegment += `    sub ${nextRegister}, ${currentRegister}, ${nextRegister}      # ${operator} ${operand}\n`;
+                                textSegment += `\tsub ${nextRegister}, ${currentRegister}, ${nextRegister}\t\t# ${operator} ${operand}\n`;
                             }
                         } else {
                             throw new Error(`${language}: Variable '${operand}' not declared.`);
                         }
                         currentRegister = nextRegister; // Update currentRegister for the next operation
                     }
-                    textSegment += `    sw ${currentRegister}, ${destVar}         # Store result in ${destVar}\n`;
+                    textSegment += `\tsw ${currentRegister}, ${destVar}\t\t# Store result in ${destVar}\n`;
                     return;
                 }
 
@@ -322,18 +353,18 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (!dataSegment.hasOwnProperty(varName)) {
                         throw new Error(`Python: Variable '${varName}' not defined before print.`);
                     }
-                    textSegment += `    lw $a0, ${varName}\n    li $v0, 1\n    syscall\n`;
-                    textSegment += `    la $a0, newline\n    li $v0, 4\n    syscall\n`;
+                    textSegment += `\tlw $a0, ${varName}\n\tli $v0, 1\n\tsyscall\n`;
+                    textSegment += `\tla $a0, newline\n\tli $v0, 4\n\tsyscall\n`;
                     return;
                 }
 
                 // === Fallback: Unsupported ===
-                textSegment += `    # Unsupported Python line: ${line}\n`;
+                textSegment += `\t# Unsupported Python line: ${line}\n`;
             } else {
                 console.log("language invalid");
             }
             
-            textSegment += `    # Unsupported ${language} line: ${line}\n`;
+            textSegment += `\t# Unsupported ${language} line: ${line}\n`;
         })
 
         let finalDataSegmentContent = ".data\n";
@@ -342,15 +373,20 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         let mipsCode = finalDataSegmentContent + "\n" + textSegment;
 
-        mipsCode += "\n    # Exit program\n";
-        mipsCode += "    li $v0, 10             # Syscall for exit\n";
-        mipsCode += "    syscall                # Execute exit\n";
-        return mipsCode;
+        const codeHeader = document.createElement("code");
+        codeHeader.className = "codeHeader";
+        codeHeader.textContent += finalDataSegmentContent;
+        mipsContainer.insertBefore(codeHeader, mipsContainer.firstChild);
+
+        const codeFooter = document.createElement("code");
+        codeFooter.className = "codeFooter";
+        codeFooter.textContent += "\t\t# Exit program\n";
+        codeFooter.textContent += "\tli $v0, 10\t\t# Syscall for exit\n";
+        codeFooter.textContent += "\tsyscall\t\t# Execute exit\n";
+        return "";
     }
 
-
     function convertToMips(code, language) {
-        console.log(`Converting ${language} code to MIPS:`);
         if (code.toLowerCase().includes("testerror")) {
             throw new Error("Simulated critical error in MIPS conversion.");
         }
@@ -368,7 +404,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function convertMipsToBinary(mipsCode) {
-        console.log("Converting MIPS to Binary:");
         let binaryRepresentation = "// Binary Representation (Simplified - Educational Purposes)\n";
         const lines = mipsCode.split("\n");
         let currentAddress = 0x00400000;
@@ -404,14 +439,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             } else if (inDataSegment) {
                 const parts = line.split(/\s+/);
-                const labelMatch = parts[0].match(/^(\w+):$/); // Check if the line starts with a label:
+                const labelMatch = parts[0].match(/^(\w+):$/);
                 let label = null;
                 let directiveIndex = 0;
 
                 if (labelMatch) {
                     label = labelMatch[1];
-                    dataLabelAddresses[label] = tempAddress; // Store the address of the label
-                    directiveIndex = 1; // Move to the next part to find the directive
+                    dataLabelAddresses[label] = tempAddress;
+                    directiveIndex = 1;
                 }
 
                 const directive = parts[directiveIndex];
@@ -487,7 +522,6 @@ document.addEventListener("DOMContentLoaded", () => {
             let binInstruction = "????????????????????????????????";
 
             if (def) {
-                console.log(instruction)
                 if (instruction === "syscall") {
                     binInstruction = `${def.opcode}000000000000000000000${def.funct}`;
                 } else if (def.funct) {
