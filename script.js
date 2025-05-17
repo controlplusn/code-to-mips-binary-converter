@@ -9,6 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const exampleSelect = document.getElementById("example-select");
     const outputSection = document.getElementById("output-section");
     const mipsContainer = document.getElementById("mips-container");
+    const binaryContainer = document.getElementById("binary-container");
 
     // --- Example Code Snippets ---
     const examples = {
@@ -453,10 +454,10 @@ document.addEventListener("DOMContentLoaded", () => {
             finalDataSegmentContent += `${varName}: ${dataSegment[varName]}\n`;
         }
 
-        let mipsCode = finalDataSegmentContent + "\n" + textSegment;
         const codeHeader = document.createElement("code");
         codeHeader.className = "codeHeader";
         codeHeader.textContent += finalDataSegmentContent;
+        codeHeader.textContent += "\n.text\n.globl main\nmain:\n";
         mipsContainer.insertBefore(codeHeader, mipsContainer.firstChild);
 
         const divFooter = document.createElement("div");
@@ -494,235 +495,194 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function convertMipsToBinary(mipsCode) {
-        let binaryRepresentation = "// Binary Representation (Simplified - Educational Purposes)\n";
-        const lines = mipsCode.split("\n");
+        console.log(mipsCode)
         let currentAddress = 0x00400000;
         const labelAddresses = {};
         const dataLabelAddresses = {};
         let dataAddressCounter = 0x10010000;
-        let inTextSegment = false;
-        let inDataSegment = false;
+        // let inTextSegment = false;
+        // let inDataSegment = false;
+        // const lines = mipsCode.split("\n");
 
         let tempAddress = 0;
-        lines.forEach(line => {
-            line = line.trim();
-            const commentIndex = line.indexOf("#");
-            if (commentIndex !== -1) {
-                line = line.substring(0, commentIndex).trim();
-            }
-            if (!line) return;
+        Object.keys(mipsCode).map(key => {
+            const parentDiv = document.createElement("div");
+            parentDiv.className = "code-container";
 
-            if (line === ".data") { inDataSegment = true; inTextSegment = false; tempAddress = dataAddressCounter; return; }
-            if (line === ".text") { inTextSegment = true; inDataSegment = false; tempAddress = currentAddress; return; }
-
-            if (line.endsWith(":")) {
-                const label = line.slice(0, -1);
-                if (inTextSegment) {
-                    labelAddresses[label] = tempAddress;
-                } else if (inDataSegment) {
-                    dataLabelAddresses[label] = tempAddress;
-                }
-            } else if (inTextSegment && !line.startsWith(".")) {
-                const parts = line.replace(/,/g, " ").split(/\s+/).filter(p => p);
-                if (parts.length > 0 && mipsToBinaryMap[parts[0].toLowerCase()]) {
-                    tempAddress += 4;
-                }
-            } else if (inDataSegment) {
-                const parts = line.split(/\s+/);
-                const labelMatch = parts[0].match(/^(\w+):$/);
-                let label = null;
-                let directiveIndex = 0;
-
-                if (labelMatch) {
-                    label = labelMatch[1];
-                    dataLabelAddresses[label] = tempAddress;
-                    directiveIndex = 1;
-                }
-
-                const directive = parts[directiveIndex];
-
-                if (directive === ".word") {
-                    tempAddress += 4 * (parts.length - 1 - directiveIndex);
-                } else if (directive === ".asciiz") {
-                    const str = parts.slice(directiveIndex + 1).join(" ").slice(1, -1);
-                    tempAddress += (str.replace(/\\n/g, "\n").length + 1);
-                    if (tempAddress % 4 !== 0) tempAddress = tempAddress + (4 - (tempAddress % 4));
-                }
-            }
-        });
-
-        inTextSegment = false;
-        inDataSegment = false;
-        currentAddress = 0x00400000;
-        dataAddressCounter = 0x10010000;
-
-        lines.forEach(line => {
-            let originalLine = line;
-            line = line.trim();
-            const commentIndex = line.indexOf("#");
-            if (commentIndex !== -1) {
-                line = line.substring(0, commentIndex).trim();
+            for (var i = 0; i < mipsCode[key].length; i++) {
+                const codeBinary = document.createElement("code");
+                console.log(mipsCode[key][i]);
             }
 
-            if (!line) {
-                binaryRepresentation += `// ${originalLine}\n`;
-                return;
-            }
+        })
 
-            if (line === ".data") {
-                inDataSegment = true; inTextSegment = false;
-                binaryRepresentation += `// ${originalLine}\n`;
-                currentAddress = dataAddressCounter;
-                return;
-            }
-            if (line === ".text") {
-                inTextSegment = true; inDataSegment = false;
-                binaryRepresentation += `// ${originalLine}\n`;
-                currentAddress = 0x00400000;
-                return;
-            }
+        // lines.forEach(line => {
+        //     let originalLine = line;
+        //     line = line.trim();
+        //     const commentIndex = line.indexOf("#");
+        //     if (commentIndex !== -1) {
+        //         line = line.substring(0, commentIndex).trim();
+        //     }
 
-            if (line.endsWith(":")) {
-                binaryRepresentation += `// ${originalLine}\n`;
-                return;
-            }
+        //     if (!line) {
+        //         binaryRepresentation += `// ${originalLine}\n`;
+        //         return;
+        //     }
 
-            if (inDataSegment) {
-                const parts = line.split(/\s+/);
-                const label = parts[0].slice(0, -1);
-                const directive = parts[1];
-                const value = parts.slice(2).join(" ");
-                binaryRepresentation += `0x${(dataLabelAddresses[label] || currentAddress).toString(16)}: Data (${directive} ${value}) // ${originalLine}\n`;
-                return;
-            }
+        //     if (line === ".data") {
+        //         inDataSegment = true; inTextSegment = false;
+        //         binaryRepresentation += `// ${originalLine}\n`;
+        //         currentAddress = dataAddressCounter;
+        //         return;
+        //     }
+        //     if (line === ".text") {
+        //         inTextSegment = true; inDataSegment = false;
+        //         binaryRepresentation += `// ${originalLine}\n`;
+        //         currentAddress = 0x00400000;
+        //         return;
+        //     }
 
-            if (!inTextSegment || line.startsWith(".")) {
-                binaryRepresentation += `// ${originalLine}\n`;
-                return;
-            }
+        //     if (line.endsWith(":")) {
+        //         binaryRepresentation += `// ${originalLine}\n`;
+        //         return;
+        //     }
 
-            const parts = line.replace(/,/g, " ").split(/\s+/).filter(p => p);
-            if (parts.length === 0) {
-                binaryRepresentation += `// ${originalLine}\n`;
-                return;
-            }
-            const instruction = parts[0].toLowerCase();
-            const def = mipsToBinaryMap[instruction];
+        //     if (inDataSegment) {
+        //         const parts = line.split(/\s+/);
+        //         const label = parts[0].slice(0, -1);
+        //         const directive = parts[1];
+        //         const value = parts.slice(2).join(" ");
+        //         binaryRepresentation += `0x${(dataLabelAddresses[label] || currentAddress).toString(16)}: Data (${directive} ${value}) // ${originalLine}\n`;
+        //         return;
+        //     }
 
-            let binInstruction = "????????????????????????????????";
+        //     if (!inTextSegment || line.startsWith(".")) {
+        //         binaryRepresentation += `// ${originalLine}\n`;
+        //         return;
+        //     }
 
-            if (def) {
-                if (instruction === "syscall") {
-                    binInstruction = `${def.opcode}000000000000000000000${def.funct}`;
-                } else if (def.funct) {
-                    const rd = registerToBinaryMap[parts[1]] || "00000";
-                    const rs = registerToBinaryMap[parts[2]] || "00000";
-                    const rt = registerToBinaryMap[parts[3]] || "00000";
-                    const shamt = "00000";
-                    binInstruction = `${def.opcode}${rs}${rt}${rd}${shamt}${def.funct}`;
-                } else if (instruction === "addi") {
-                    const rt = registerToBinaryMap[parts[1]] || "00000";
-                    const rs = registerToBinaryMap[parts[2]] || "00000";
-                    const immediate = parseInt(parts[3]);
-                    const immediate_bin = decToBinary(immediate & 0xFFFF, 16);
-                    binInstruction = `${def.opcode}${rs}${rt}${immediate_bin}`;
-                } else if (instruction === "li") {
-                    const rt = registerToBinaryMap[parts[1]] || "00000";
-                    const imm = parseInt(parts[2]);
-                    if (imm >= -32768 && imm <= 65535) {
-                        const rs_zero = registerToBinaryMap["$zero"];
-                        binInstruction = `001001${rs_zero}${rt}${decToBinary(imm, 16)}`;
-                    } else {
-                        binInstruction = `complex_li_expansion_needed`;
-                    }
-                } else if (instruction === "lw" || instruction === "sw") {
-                    const rt_reg = registerToBinaryMap[parts[1]] || "00000";
-                    let offset_bin = "0000000000000000";
-                    let rs_reg = "00000";
-                    const memPart = parts[2];
-                    const memMatch = memPart.match(/(\d+)?\(([\$\w]+)\)/);
-                    if (memMatch) {
-                        offset_bin = decToBinary(parseInt(memMatch[1] || "0"), 16);
-                        rs_reg = registerToBinaryMap[memMatch[2]] || "00000";
-                    } else {
-                        if (dataLabelAddresses[memPart]) {
-                            const rt_reg = registerToBinaryMap[parts[1]] || "00000"; // The register being loaded/stored
-                            const rs_reg = registerToBinaryMap["$zero"]; // Base register is $zero for direct addressing of data labels
-                            const offset = dataLabelAddresses[memPart];
-                            const offset_bin = decToBinary(offset & 0xFFFF, 16); // Take lower 16 bits as offset
+        //     const parts = line.replace(/,/g, " ").split(/\s+/).filter(p => p);
+        //     if (parts.length === 0) {
+        //         binaryRepresentation += `// ${originalLine}\n`;
+        //         return;
+        //     }
+        //     const instruction = parts[0].toLowerCase();
+        //     const def = mipsToBinaryMap[instruction];
 
-                            binInstruction = `${def.opcode}${rs_reg}${rt_reg}${offset_bin}`;
-                        } else {
-                            binInstruction = `unknown_label_for_load_store`;
-                        }
-                    }
-                    if (binInstruction.startsWith("?")) binInstruction = `${def.opcode}${rs_reg}${rt_reg}${offset_bin}`;
-                } else if (instruction === "la") { // Handle la pseudo-instruction
-                    const targetRegister = registerToBinaryMap[parts[1]] || "00000";
-                    const labelName = parts[2];
-                    let address = null;
+        //     let binInstruction = "????????????????????????????????";
 
-                    if (dataLabelAddresses[labelName] !== undefined) {
-                        address = dataLabelAddresses[labelName];
-                    } else if (labelAddresses[labelName] !== undefined) {
-                        address = labelAddresses[labelName];
-                    }
+        //     if (def) {
+        //         if (instruction === "syscall") {
+        //             binInstruction = `${def.opcode}000000000000000000000${def.funct}`;
+        //         } else if (def.funct) {
+        //             const rd = registerToBinaryMap[parts[1]] || "00000";
+        //             const rs = registerToBinaryMap[parts[2]] || "00000";
+        //             const rt = registerToBinaryMap[parts[3]] || "00000";
+        //             const shamt = "00000";
+        //             binInstruction = `${def.opcode}${rs}${rt}${rd}${shamt}${def.funct}`;
+        //         } else if (instruction === "addi") {
+        //             const rt = registerToBinaryMap[parts[1]] || "00000";
+        //             const rs = registerToBinaryMap[parts[2]] || "00000";
+        //             const immediate = parseInt(parts[3]);
+        //             const immediate_bin = decToBinary(immediate & 0xFFFF, 16);
+        //             binInstruction = `${def.opcode}${rs}${rt}${immediate_bin}`;
+        //         } else if (instruction === "li") {
+        //             const rt = registerToBinaryMap[parts[1]] || "00000";
+        //             const imm = parseInt(parts[2]);
+        //             if (imm >= -32768 && imm <= 65535) {
+        //                 const rs_zero = registerToBinaryMap["$zero"];
+        //                 binInstruction = `001001${rs_zero}${rt}${decToBinary(imm, 16)}`;
+        //             } else {
+        //                 binInstruction = `complex_li_expansion_needed`;
+        //             }
+        //         } else if (instruction === "lw" || instruction === "sw") {
+        //             const rt_reg = registerToBinaryMap[parts[1]] || "00000";
+        //             let offset_bin = "0000000000000000";
+        //             let rs_reg = "00000";
+        //             const memPart = parts[2];
+        //             const memMatch = memPart.match(/(\d+)?\(([\$\w]+)\)/);
+        //             if (memMatch) {
+        //                 offset_bin = decToBinary(parseInt(memMatch[1] || "0"), 16);
+        //                 rs_reg = registerToBinaryMap[memMatch[2]] || "00000";
+        //             } else {
+        //                 if (dataLabelAddresses[memPart]) {
+        //                     const rt_reg = registerToBinaryMap[parts[1]] || "00000"; // The register being loaded/stored
+        //                     const rs_reg = registerToBinaryMap["$zero"]; // Base register is $zero for direct addressing of data labels
+        //                     const offset = dataLabelAddresses[memPart];
+        //                     const offset_bin = decToBinary(offset & 0xFFFF, 16); // Take lower 16 bits as offset
 
-                    if (address !== null) {
-                        const upper16Bits = (address >>> 16) & 0xFFFF;
-                        const lower16Bits = address & 0xFFFF;
-                        const opcode_lui = "001111"; // Opcode for LUI
-                        const opcode_ori = "001101"; // Opcode for ORI
-                        const rs_zero = registerToBinaryMap["$zero"];
+        //                     binInstruction = `${def.opcode}${rs_reg}${rt_reg}${offset_bin}`;
+        //                 } else {
+        //                     binInstruction = `unknown_label_for_load_store`;
+        //                 }
+        //             }
+        //             if (binInstruction.startsWith("?")) binInstruction = `${def.opcode}${rs_reg}${rt_reg}${offset_bin}`;
+        //         } else if (instruction === "la") { // Handle la pseudo-instruction
+        //             const targetRegister = registerToBinaryMap[parts[1]] || "00000";
+        //             const labelName = parts[2];
+        //             let address = null;
 
-                        function toHex(decimal) {
-                            return '0x' + decimal.toString(16).padStart(8, '0');
-                        }
+        //             if (dataLabelAddresses[labelName] !== undefined) {
+        //                 address = dataLabelAddresses[labelName];
+        //             } else if (labelAddresses[labelName] !== undefined) {
+        //                 address = labelAddresses[labelName];
+        //             }
+
+        //             if (address !== null) {
+        //                 const upper16Bits = (address >>> 16) & 0xFFFF;
+        //                 const lower16Bits = address & 0xFFFF;
+        //                 const opcode_lui = "001111"; // Opcode for LUI
+        //                 const opcode_ori = "001101"; // Opcode for ORI
+        //                 const rs_zero = registerToBinaryMap["$zero"];
+
+        //                 function toHex(decimal) {
+        //                     return '0x' + decimal.toString(16).padStart(8, '0');
+        //                 }
 
 
-                        if (upper16Bits !== 0) {
-                            binaryRepresentation += `${toHex(currentAddress)}: ${opcode_lui}${rs_zero}${targetRegister}${decToBinary(upper16Bits, 16)} //     lui ${parts[1]}, ${upper16Bits}       # Load upper 16 bits of ${labelName} address\n`;
-                            currentAddress += 4;
-                        }
-                        binInstruction = `${opcode_ori}${targetRegister}${targetRegister}${decToBinary(lower16Bits, 16)}`;
-                    } else {
-                        binInstruction = `label_${labelName}_not_found`;
-                        binaryRepresentation += `// WARN: Label ${labelName} not found for la\n`;
-                    }
-                } else if (instruction === "beq" || instruction === "bne") {
-                    const rs_br = registerToBinaryMap[parts[1]] || "00000";
-                    const rt_br = registerToBinaryMap[parts[2]] || "00000";
-                    const labelName = parts[3];
-                    let relativeOffset = "????????????????";
-                    if (labelAddresses[labelName]) {
-                        const targetAddr = labelAddresses[labelName];
-                        const offsetVal = (targetAddr - (currentAddress + 4)) / 4;
-                        relativeOffset = decToBinary(offsetVal, 16);
-                    } else {
-                        binaryRepresentation += `// WARN: Label ${labelName} not found for ${instruction}\n`;
-                    }
-                    binInstruction = `${def.opcode}${rs_br}${rt_br}${relativeOffset}`;
-                } else if (instruction === "j" || instruction === "jal") {
-                    const labelName = parts[1];
-                    let target = "??????????????????????????";
-                    if (labelAddresses[labelName]) {
-                        const pseudoDirectAddress = (labelAddresses[labelName] & 0x0FFFFFFF) >> 2;
-                        target = decToBinary(pseudoDirectAddress, 26);
-                    } else {
-                        binaryRepresentation += `// WARN: Label ${labelName} not found for ${instruction}\n`;
-                    }
-                    binInstruction = `${def.opcode}${target}`;
-                } else {
-                    binInstruction = "unknown_instr_format";
-                }
-            } else {
-                binInstruction = "invalid_mips_instruction_name";
-            }
-            binaryRepresentation += `0x${currentAddress.toString(16)}: ${binInstruction} // ${originalLine}\n`;
-            currentAddress += 4;
-        });
+        //                 if (upper16Bits !== 0) {
+        //                     binaryRepresentation += `${toHex(currentAddress)}: ${opcode_lui}${rs_zero}${targetRegister}${decToBinary(upper16Bits, 16)} //     lui ${parts[1]}, ${upper16Bits}       # Load upper 16 bits of ${labelName} address\n`;
+        //                     currentAddress += 4;
+        //                 }
+        //                 binInstruction = `${opcode_ori}${targetRegister}${targetRegister}${decToBinary(lower16Bits, 16)}`;
+        //             } else {
+        //                 binInstruction = `label_${labelName}_not_found`;
+        //                 binaryRepresentation += `// WARN: Label ${labelName} not found for la\n`;
+        //             }
+        //         } else if (instruction === "beq" || instruction === "bne") {
+        //             const rs_br = registerToBinaryMap[parts[1]] || "00000";
+        //             const rt_br = registerToBinaryMap[parts[2]] || "00000";
+        //             const labelName = parts[3];
+        //             let relativeOffset = "????????????????";
+        //             if (labelAddresses[labelName]) {
+        //                 const targetAddr = labelAddresses[labelName];
+        //                 const offsetVal = (targetAddr - (currentAddress + 4)) / 4;
+        //                 relativeOffset = decToBinary(offsetVal, 16);
+        //             } else {
+        //                 binaryRepresentation += `// WARN: Label ${labelName} not found for ${instruction}\n`;
+        //             }
+        //             binInstruction = `${def.opcode}${rs_br}${rt_br}${relativeOffset}`;
+        //         } else if (instruction === "j" || instruction === "jal") {
+        //             const labelName = parts[1];
+        //             let target = "??????????????????????????";
+        //             if (labelAddresses[labelName]) {
+        //                 const pseudoDirectAddress = (labelAddresses[labelName] & 0x0FFFFFFF) >> 2;
+        //                 target = decToBinary(pseudoDirectAddress, 26);
+        //             } else {
+        //                 binaryRepresentation += `// WARN: Label ${labelName} not found for ${instruction}\n`;
+        //             }
+        //             binInstruction = `${def.opcode}${target}`;
+        //         } else {
+        //             binInstruction = "unknown_instr_format";
+        //         }
+        //     } else {
+        //         binInstruction = "invalid_mips_instruction_name";
+        //     }
+        //     binaryRepresentation += `0x${currentAddress.toString(16)}: ${binInstruction} // ${originalLine}\n`;
+        //     currentAddress += 4;
+        // });
 
-        return binaryRepresentation;
+        // return binaryRepresentation;
     }
 
     // Event listeners for copy buttons
