@@ -68,7 +68,6 @@ html {
     color-scheme: dark light;
 }
 
-
 img {
     display: block;
     max-width: 100%;
@@ -76,11 +75,11 @@ img {
 
 /* General Body Styles */
 body {
-    font: var(--font-russo-400);
-    background-color: var(--clr-bg);
-    color: var(--clr-text);
     min-height: 100dvh;
     padding: var(--spacing-3);
+    background-color: var(--clr-bg);
+    color: var(--clr-text);
+    font: var(--font-russo-400);
 }
 
 /* Glow Background */
@@ -101,9 +100,16 @@ body {
 
 /* Header Styles */
 header {
+    position: relative;
     font: var(--font-russo-700);
     text-align: center;
     margin-bottom: var(--spacing-5);
+}
+
+.logo-wrapper {
+    position: absolute;
+    top: 0;
+    left: var(--spacing-1);
 }
 
 /* Main Content Area */
