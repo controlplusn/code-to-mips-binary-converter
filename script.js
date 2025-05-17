@@ -186,45 +186,51 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
 
-            match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z0-9_]+)\s*\+\s*([a-zA-Z0-9_]+);/);
-            if (match) {
-                const destVar = match[1];
-                const operand1 = match[2];
-                const operand2 = match[3];
-                if (!dataSegment.hasOwnProperty(destVar)) throw new Error(`C/C++: Variable '${destVar}' not declared before assignment.`);
-                if (!dataSegment.hasOwnProperty(operand1)) throw new Error(`C/C++: Variable '${operand1}' not declared before use.`);
-                if (!/^\d+$/.test(operand2) && !dataSegment.hasOwnProperty(operand2)) throw new Error(`C/C++: Variable or immediate '${operand2}' not declared before use.`);
-
+            // Updated addition pattern to handle immediate values
+        match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z0-9_]+)\s*\+\s*([a-zA-Z0-9_]+);/);
+        if (match) {
+            const destVar = match[1];
+            const operand1 = match[2];
+            const operand2 = match[3];
+            
+            if (!dataSegment.hasOwnProperty(destVar)) throw new Error(`C/C++: Variable '${destVar}' not declared before assignment.`);
+            
+            // Handle case where both operands are numbers (e.g., x = 5 + 3)
+            if (/^\d+$/.test(operand1) && /^\d+$/.test(operand2)) {
+                const sum = parseInt(operand1) + parseInt(operand2);
+                textSegment += `    li $t0, ${sum}          # Calculate ${operand1} + ${operand2} (immediate values)\n`;
+                textSegment += `    sw $t0, ${destVar}      # Store the result into ${destVar}\n`;
+                return;
+            }
+            
+            // Handle case where first operand is a number and second is a variable
+            if (/^\d+$/.test(operand1) && dataSegment.hasOwnProperty(operand2)) {
+                textSegment += `    li $t1, ${operand1}      # Load immediate value ${operand1}\n`;
+                textSegment += `    lw $t2, ${operand2}      # Load variable ${operand2}\n`;
+                textSegment += `    add $t0, $t1, $t2      # Calculate ${operand1} + ${operand2}\n`;
+                textSegment += `    sw $t0, ${destVar}      # Store the result into ${destVar}\n`;
+                return;
+            }
+            
+            // Handle case where first operand is a variable and second is a number
+            if (dataSegment.hasOwnProperty(operand1) && /^\d+$/.test(operand2)) {
+                textSegment += `    lw $t1, ${operand1}      # Load variable ${operand1}\n`;
+                textSegment += `    addi $t0, $t1, ${operand2}   # Calculate ${operand1} + ${operand2} (immediate)\n`;
+                textSegment += `    sw $t0, ${destVar}      # Store the result into ${destVar}\n`;
+                return;
+            }
+            
+            // Original case where both operands are variables
+            if (dataSegment.hasOwnProperty(operand1) && dataSegment.hasOwnProperty(operand2)) {
                 textSegment += `    lw $t1, ${operand1}      # Load ${operand1} into $t1\n`;
-                if (/^\d+$/.test(operand2)) {
-                    textSegment += `    addi $t0, $t1, ${operand2}   # Calculate ${operand1} + ${operand2} (immediate) and store in $t0\n`;
-                } else {
-                    textSegment += `    lw $t2, ${operand2}      # Load ${operand2} into $t2\n`;
-                    textSegment += `    add $t0, $t1, $t2      # Calculate ${operand1} + ${operand2} and store in $t0\n`;
-                }
+                textSegment += `    lw $t2, ${operand2}      # Load ${operand2} into $t2\n`;
+                textSegment += `    add $t0, $t1, $t2      # Calculate ${operand1} + ${operand2}\n`;
                 textSegment += `    sw $t0, ${destVar}      # Store the result into ${destVar}\n`;
                 return;
             }
 
-            match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z0-9_]+)\s*\-\s*([a-zA-Z0-9_]+);/);
-            if (match) {
-                const destVar = match[1];
-                const operand1 = match[2];
-                const operand2 = match[3];
-                if (!dataSegment.hasOwnProperty(destVar)) throw new Error(`C/C++: Variable '${destVar}' not declared before assignment.`);
-                if (!dataSegment.hasOwnProperty(operand1)) throw new Error(`C/C++: Variable '${operand1}' not declared before use.`);
-                if (!/^\d+$/.test(operand2) && !dataSegment.hasOwnProperty(operand2)) throw new Error(`C/C++: Variable or immediate '${operand2}' not declared before use.`);
-
-                textSegment += `    lw $t1, ${operand1}      # Load ${operand1} into $t1\n`;
-                if (/^\d+$/.test(operand2)) {
-                    textSegment += `    addi $t0, $t1, -${operand2}  # Calculate ${operand1} - ${operand2} (immediate) and store in $t0\n`;
-                } else {
-                    textSegment += `    lw $t2, ${operand2}      # Load ${operand2} into $t2\n`;
-                    textSegment += `    sub $t0, $t1, $t2      # Calculate ${operand1} - ${operand2} and store in $t0\n`;
-                }
-                textSegment += `    sw $t0, ${destVar}      # Store the result into ${destVar}\n`;
-                return;
-            }
+            throw new Error(`C/C++: Invalid operands in addition: ${operand1} + ${operand2}`);
+        }
 
 
             match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z0-9_]+);/);
@@ -263,13 +269,14 @@ document.addEventListener("DOMContentLoaded", () => {
         for (const varName in dataSegment) {
             finalDataSegmentContent += `${varName}: ${dataSegment[varName]}\n`;
         }
+        
         let mipsCode = finalDataSegmentContent + "\n" + textSegment;
 
         mipsCode += "\n    # Exit program\n";
         mipsCode += "    li $v0, 10             # Syscall for exit\n";
         mipsCode += "    syscall                # Execute exit\n";
         return mipsCode;
-    }
+        }
 
     function parseAndGenerateMips_Python(code) {
         let textSegment = ".text\n.globl main\nmain:\n";
