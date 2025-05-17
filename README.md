@@ -31,6 +31,12 @@ Take a look at the interface of the Code to MIPS & Binary Converter:
 
 ![UI](https://github.com/controlplusn/code-to-mips-binary-converter/blob/main/images/ui-screenshot.jpg?raw=true)
 
+
+<h3 id="example-preview">🖼️ Example Code Preview</h3>
+Take a look at this example input and output:
+
+![Example](https://github.com/controlplusn/code-to-mips-binary-converter/blob/main/images/example-input.jpg?raw=true)
+
 <!-- FEATURES --> 
 <h2 id="features">🚀 Key Features</h2> 
 <strong>High-Level to Low-Level Conversion</strong>
