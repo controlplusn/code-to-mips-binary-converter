@@ -7,7 +7,29 @@ document.addEventListener("DOMContentLoaded", () => {
     const statusMessage = document.getElementById("status-message");
     const copyBtns = document.querySelectorAll(".copy-btn");
     const exampleSelect = document.getElementById("example-select");
-    const outputSection = document.getElementById("output-section");
+
+    const goTopButton = document.getElementById("go-top");
+
+    window.addEventListener("scroll", () => {
+        const scrollY = window.scrollY;
+        const docHeight = document.documentElement.scrollHeight;
+        const winHeight = window.innerHeight;
+
+        const bottomReached = scrollY + winHeight >= docHeight - 10;
+
+        if (bottomReached) {
+            goTopButton.classList.add("show");
+        } else {
+            goTopButton.classList.remove("show");
+        }
+    });
+
+    goTopButton.addEventListener("click", () => {
+        window.scrollTo({
+            top: 0,
+            behavior: "smooth"
+        });
+    });
 
     // --- Example Code Snippets ---
     const examples = {
@@ -114,10 +136,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Event listener for the convert button
     convertBtn.addEventListener("click", () => {
-        outputSection.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start'
-        })
 
         const selectedLanguage = languageSelect.value;
         const sourceCode = codeInput.value.trim();
