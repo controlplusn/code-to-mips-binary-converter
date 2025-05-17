@@ -194,7 +194,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (dataSegment[varName]) throw new Error(`${language}: Variable '${varName}' already declared.`);
                     dataSegment[varName] = ".word 0";
                     return;
-                }
+              }
 
                 // int x = [var/num/expression] || x = [var/num/expression]
                 match = line.match(/^(?:int\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_0-9\s+\-]+);/);
