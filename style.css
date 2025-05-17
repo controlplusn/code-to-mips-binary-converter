@@ -366,7 +366,6 @@ footer {
 .profile-image {
     height: 100%;
     border-radius: 22px;
-    background-image: url(images/timothy.png);
     background-repeat: no-repeat;
     background-position: center bottom;
     background-size: cover;
@@ -386,6 +385,14 @@ footer {
             transparent);
     border-bottom-right-radius: 22px;
     border-bottom-left-radius: 22px;
+}
+
+.profile-image {
+    background-image: url(images/ziac.jpg);
+}
+
+.timothy .profile-image {
+    background-image: url(images/timothy.png);
 }
 
 .profile-wrapper {
