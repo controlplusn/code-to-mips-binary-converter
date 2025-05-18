@@ -24,11 +24,9 @@
 	--font-lg: clamp(1.25rem, 0.8989rem + 1.4981vw, 2.5rem);
 
 	--font-russo-400: var(--font-weight) var(--font-base) var(--font-family-1);
-	--font-russo-700: var(--font-style) var(--font-weight) var(--font-lg)
-		var(--font-family-1);
+	--font-russo-700: var(--font-style) var(--font-weight) var(--font-lg) var(--font-family-1);
 
-	--font-cutive: var(--font-style) var(--font-weight) var(--font-base)
-		var(--font-family-2);
+	--font-cutive: var(--font-style) var(--font-weight) var(--font-base) var(--font-family-2);
 
 	/* Spacing */
 	--spacing-0-5: 8px;
@@ -162,8 +160,8 @@ main {
 		grid-template-areas:
 			"control input"
 			"mips binary";
-		grid-template-columns: minmax(280px, 380px) minmax(35ch, 45ch);
-		grid-template-rows: repeat(2, minmax(360px, 420px));
+		grid-template-columns: repeat(2, 1fr);
+		grid-template-rows: repeat(2, minmax(360px, 1fr));
 		place-content: center;
 		gap: var(--spacing-2);
 	}
@@ -174,7 +172,7 @@ main {
 		grid-template-areas:
 			"control input mips"
 			"binary binary mips";
-		grid-template-columns: minmax(280px, 380px) minmax(35ch, 45ch) 1fr;
+		grid-template-columns: minmax(280px, 0.45fr) minmax(35ch, 0.55fr) 1fr;
 		grid-template-rows: 420px 1fr;
 	}
 }
@@ -212,7 +210,7 @@ main {
 	gap: var(--spacing-0-5);
 }
 
-.control-group > select {
+.control-group>select {
 	white-space: nowrap;
 	padding: var(--spacing-1);
 	background-color: var(--clr-neutral);
@@ -236,12 +234,12 @@ main {
 	background-image: var(--grad-button);
 	border: none;
 	border-radius: var(--rounded-xs);
+	white-space: nowrap;
 }
 
 button {
 	cursor: pointer;
-	transition: opacity var(--transition-duration)
-		var(--transition-timing-function);
+	transition: opacity var(--transition-duration) var(--transition-timing-function);
 }
 
 button:hover {
@@ -382,12 +380,10 @@ footer {
 	margin-inline: auto;
 	width: calc(100% - 4px);
 	height: 280px;
-	background: linear-gradient(
-		to top,
-		rgb(0, 0, 0),
-		rgba(0, 0, 0, 0.8),
-		transparent
-	);
+	background: linear-gradient(to top,
+			rgb(0, 0, 0),
+			rgba(0, 0, 0, 0.8),
+			transparent);
 	border-bottom-right-radius: 22px;
 	border-bottom-left-radius: 22px;
 }
@@ -417,12 +413,12 @@ footer {
 	font-size: 1.15rem;
 }
 
-.bsu > img {
+.bsu>img {
 	width: 34px;
 	margin-top: 2px;
 }
 
-.github > img {
+.github>img {
 	width: 30px;
 	filter: brightness(0) invert(1);
 }
