@@ -319,6 +319,7 @@ code {
 
 .code-container {
 	display: flex;
+    cursor: pointer;
 	justify-content: space-between;
 }
 

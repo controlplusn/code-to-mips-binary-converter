@@ -56,6 +56,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // R-type (opcode 000000)
         "add": { opcode: "000000", funct: "100000" },
         "sub": { opcode: "000000", funct: "100010" },
+        "mul": { opcode: "011100", funct: "000010" },
         "slt": { opcode: "000000", funct: "101010" },
         // I-type
         "addi": { opcode: "001000" },
@@ -149,6 +150,10 @@ document.addEventListener("DOMContentLoaded", () => {
         statusMessage.textContent = "";
         statusMessage.style.color = "";
 
+        mipsContainer.replaceChildren();
+        binaryContainer.replaceChildren();
+        mipsCodes = {};
+
         if (!selectedLanguage) {
             statusMessage.textContent = "Error: Please select an input language.";
             statusMessage.style.color = "red";
@@ -164,11 +169,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         setTimeout(() => {
             try {
-                const mipsResult = convertToMips(sourceCode, selectedLanguage);
-                const binaryResult = convertMipsToBinary(mipsResult);
-
-                mipsOutput.textContent = mipsResult;
-                binaryOutput.textContent = binaryResult;
+                const mipsResult = convertToMips(sourceCode, selectedLanguage);   // mipsCodes = {idx: []}
+                convertMipsToBinary(mipsResult);
 
                 if (typeof Prism !== 'undefined' && Prism.highlightElement) {
                     try { Prism.highlightElement(mipsOutput); } catch (e) { console.warn("Prism highlighting failed for MIPS output:", e); }
@@ -189,16 +191,44 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 500);
     });
 
+    function highlight(divParent) {
+        const instructionClassName = divParent.classList[1];
+        let codes = document.getElementsByClassName(instructionClassName);
+        for (let i = 0; i < codes.length; i++) {
+            codes[i].style.color = "red";
+        }
+    }
+
+    function removeHighlight(divParent) {
+        const instructionClassName = divParent.classList[1];
+        let codes = document.getElementsByClassName(instructionClassName);
+        for (let i = 0; i < codes.length; i++) {
+            codes[i].style.color = "#ffffff";
+        }
+    }
+
 
     // --- Language Specific Parsers and MIPS Generators ---
     function parseAndGenerateMips(language, code) {
-        let textSegment = ".text\n.globl main\nmain:\n";
         const dataSegment = { "newline": ".asciiz \"\\n\"" };
 
         const lines = code.split("\n").map(line => line.trim()).filter(line => line && !line.startsWith(language == "python" ? "#" : "//"));
 
-        lines.forEach(line => {
+        const mipsCodes = {}; // classname: [codes];
+
+        lines.forEach((line, idx) => {
             let match;
+
+            const divParent = document.createElement("div");
+            divParent.className = `code-container ${idx}`;
+            divParent.onmouseover = () => highlight(divParent);
+            divParent.onmouseout = () => removeHighlight(divParent);
+            const code = document.createElement("code");
+            const comments = document.createElement("code");
+
+            if (!mipsCodes[idx]) {
+                mipsCodes[idx] = [];
+            }
 
             if (language == "C/C++" || language == "Java") {
                 // int x;
@@ -207,22 +237,19 @@ document.addEventListener("DOMContentLoaded", () => {
                     const varName = match[1];
                     if (dataSegment[varName]) throw new Error(`${language}: Variable '${varName}' already declared.`);
                     dataSegment[varName] = ".word 0";
-                    textSegment += `\n    # int ${varName}; (declared in .data)\n`;
                     return;
                 }
 
-                // int x = [var/num/expression]
-                match = line.match(/^(?:int\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_0-9\s+\-]+);/);
+                // int x = [var/num/expression] || x = [var/num/expression]
+                match = line.match(/^(?:int\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_0-9\s+\-\*]+);/);
                 if (match) {
                     const destVar = match[1];
                     const expression = match[2].trim();
-                    const parts = expression.split(/\s*([+\-])\s*/); // Split by + or -
+                    const parts = expression.split(/\s*([+\-\*])\s*/); // Split by + or - or *
 
                     if (line.includes("int")) {
                         if (dataSegment[destVar]) throw new Error(`${language}: Variable '${destVar}' already declared.`);
                         dataSegment[destVar] = ".word 0";
-
-                        textSegment += `\n    # int ${destVar} = ${expression}\n`;
                     }
 
                     let currentRegister = "$t0";
@@ -230,9 +257,13 @@ document.addEventListener("DOMContentLoaded", () => {
                     let registerCounter = 1;
 
                     if (/^\d+$/.test(firstOperand)) {
-                        textSegment += `    li ${currentRegister}, ${firstOperand}      # Load initial value\n`;
+                        code.textContent += `\tli ${currentRegister}, ${firstOperand}\n`;
+                        comments.textContent += `# Load initial value\n`;
+                        mipsCodes[idx].push(`li ${currentRegister}, ${firstOperand}`);
                     } else if (dataSegment.hasOwnProperty(firstOperand)) {
-                        textSegment += `    lw ${currentRegister}, ${firstOperand}      # Load ${firstOperand}\n`;
+                        code.textContent += `\tlw ${currentRegister}, ${firstOperand}\n`;
+                        comments.textContent += `# Load ${firstOperand}\n`;
+                        mipsCodes[idx].push(`lw ${currentRegister}, ${firstOperand}`);
                     } else {
                         throw new Error(`${language}: Variable or immediate '${firstOperand}' not declared.`);
                     }
@@ -245,29 +276,56 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         if (/^\d+$/.test(operand)) {
                             if (operator === "+") {
-                                textSegment += `    addi ${nextRegister}, ${currentRegister}, ${operand}   # ${operator} with immediate value ${operand}\n`;
+                                code.textContent += `\taddi ${nextRegister}, ${currentRegister}, ${operand}\n`;
+                                comments.textContent += `# ${operator} with immediate value ${operand}\n`;
+                                mipsCodes[idx].push(`addi ${nextRegister}, ${currentRegister}, ${operand}`);    
                             } else if (operator === "-") {
-                                textSegment += `    addi ${nextRegister}, ${currentRegister}, -${operand}  # ${operator} with immediate value ${operand}\n`;
+                                code.textContent += `\taddi ${nextRegister}, ${currentRegister}, -${operand}\n`;
+                                comments.textContent += `# ${operator} with immediate value ${operand}\n`;
+                                mipsCodes[idx].push(`addi ${nextRegister}, ${currentRegister}, -${operand}`);    
+                            } else if (operator === "*") {
+                                code.textContent += `\tlw ${nextRegister}, ${operand}\n`;
+                                comments.textContent += `# Load ${operand}\n`;
+                                mipsCodes[idx].push(`lw ${nextRegister}, ${operand}`);
+                                
+                                code.textContent += `\tmul ${nextRegister}, ${currentRegister}, ${nextRegister}\n`;
+                                comments.textContent += `# Multiply ${operand}\n`;
+                                mipsCodes[idx].push(`mul ${nextRegister}, ${currentRegister}, ${nextRegister}`);
                             }
                         } else if (dataSegment.hasOwnProperty(operand)) {
-                            textSegment += `    lw ${nextRegister}, ${operand}      # Load ${operand}\n`;
+                            code.textContent += `\tlw ${nextRegister}, ${operand}\n`;
+                            comments.textContent += `# Load ${operand}\n`;
+                            mipsCodes[idx].push(`lw ${nextRegister}, ${operand}`);
                             if (operator === "+") {
-                                textSegment += `    add ${nextRegister}, ${currentRegister}, ${nextRegister}      # Add ${operand}\n`;
+                                code.textContent += `\tadd ${nextRegister}, ${currentRegister}, ${nextRegister}\n`;
+                                comments.textContent += `# Add ${operand}\n`;
+                                mipsCodes[idx].push(`add ${nextRegister}, ${currentRegister}, ${nextRegister}`);
                             } else if (operator === "-") {
-                                textSegment += `    sub ${nextRegister}, ${currentRegister}, ${nextRegister}      # Subtract ${operand}\n`;
+                                code.textContent += `\tsub ${nextRegister}, ${currentRegister}, ${nextRegister}\n`;
+                                comments.textContent += `# Subtract ${operand}\n`;
+                                mipsCodes[idx].push(`sub ${nextRegister}, ${currentRegister}, ${nextRegister}`);
+                            } else if (operator === "*") {
+                                code.textContent += `\tmul ${nextRegister}, ${currentRegister}, ${nextRegister}\n`;
+                                comments.textContent += `# Multiply ${operand}\n`;
+                                mipsCodes[idx].push(`mul ${nextRegister}, ${currentRegister}, ${nextRegister}`);
                             }
                         } else {
                             throw new Error(`${language}: Variable or immediate '${operand}' not declared.`);
                         }
                         currentRegister = nextRegister; // Update currentRegister for the next operation
                     }
-                    textSegment += `    sw ${currentRegister}, ${destVar}         # Store final result\n`;
+                    code.textContent += `\tsw ${currentRegister}, ${destVar}\n`;
+                    comments.textContent += "# Store final result\n";
+                    mipsCodes[idx].push(`sw ${currentRegister}, ${destVar}`);
+                    divParent.appendChild(code);
+                    divParent.appendChild(comments);
+                    mipsContainer.appendChild(divParent);
                     return;
                 }
 
                 // print(x);
                 if (language == "C/C++") {
-                    match = line.match(/^print\(([a-zA-Z_][a-zA-Z0-9_]*)\);/);
+                    match = line.match(/^print\(([a-zA-Z_][a-zA-Z0-9_]*)\);/) || line.match(/^cout\s*<<\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*;$/);
                 } else {
                     match = line.match(/^System\.out\.println\(([a-zA-Z_][a-zA-Z0-9_]*)\);/);
                 }
@@ -275,21 +333,43 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (match) {
                     const varName = match[1];
                     if (!dataSegment.hasOwnProperty(varName)) throw new Error(`${language}: Variable '${varName}' not declared before print.`);
-                    textSegment += `    lw $a0, ${varName}          # Load ${varName} to print\n`;
-                    textSegment += `    li $v0, 1              # Syscall for print_int\n`;
-                    textSegment += `    syscall                # Execute print\n`;
-                    textSegment += `    la $a0, newline        # Load address of newline\n`;
-                    textSegment += `    li $v0, 4              # Syscall for print_string\n`;
-                    textSegment += `    syscall                # Print newline\n`;
+                    code.textContent += `\tlw $a0, ${varName}\n`;
+                    comments.textContent += `# Load ${varName} to print\n`;
+                    mipsCodes[idx].push(`lw $a0, ${varName}`);
+
+                    code.textContent += `\tli $v0, 1\n`;
+                    comments.textContent += "# Syscall for print_int\n";
+                    mipsCodes[idx].push(`li $v0, 1`);
+
+                    code.textContent += `\tsyscall\n`;
+                    comments.textContent += "# Execute print\n";
+                    mipsCodes[idx].push(`syscall`);
+
+                    code.textContent += `\tla $a0, newline\n`;
+                    comments.textContent += "# Load address of newline\n";
+                    mipsCodes[idx].push(`la $a0, newline`);
+
+                    code.textContent += `\tli $v0, 4\n`;
+                    comments.textContent += "# Syscall for print_string\n";
+                    mipsCodes[idx].push(`li $v0, 4`);
+
+                    code.textContent += `\tsyscall\n`;
+                    comments.textContent += "# Print newline\n";
+                    mipsCodes[idx].push(`syscall`);
+
+                    divParent.appendChild(code);
+                    divParent.appendChild(comments);
+                    mipsContainer.appendChild(divParent);
                     return;
                 }
             } else if (language == "Python") {
                 // x = [num/var/expression]
-                match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_0-9\s+\-]+)/);
+                match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_0-9\s+\-\*]+)/);
+
                 if (match) {
                     const destVar = match[1];
                     const expression = match[2].trim();
-                    const parts = expression.split(/\s*([+\-])\s*/); // Split by + or -
+                    const parts = expression.split(/\s*([+\-\*])\s*/); // Split by + or - or *
 
                     let currentRegister = "$t0";
                     let firstOperand = parts[0];
@@ -301,9 +381,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     // Load the first operand into the current register
                     if (/^\d+$/.test(firstOperand)) {
-                        textSegment += `    li ${currentRegister}, ${firstOperand}      # Load ${firstOperand}\n`;
+                        code.textContent += `\tli ${currentRegister}, ${firstOperand}\n`;
+                        comments.textContent += `# Load ${firstOperand}\n`;
+                        mipsCodes[idx].push(`li ${currentRegister}, ${firstOperand}`);
                     } else if (dataSegment.hasOwnProperty(firstOperand)) {
-                        textSegment += `    lw ${currentRegister}, ${firstOperand}      # Load ${firstOperand}\n`;
+                        code.textContent += `\tlw ${currentRegister}, ${firstOperand}\n`;
+                        comments.textContent += `# Load ${firstOperand}\n`;
+                        mipsCodes[idx].push(`lw ${currentRegister}, ${firstOperand}`);
                     } else {
                         throw new Error(`${language}: Variable '${firstOperand}' not declared.`);
                     }
@@ -317,23 +401,51 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         if (/^\d+$/.test(operand)) {
                             if (operator === "+") {
-                                textSegment += `    addi ${nextRegister}, ${currentRegister}, ${operand}   # ${operator} ${operand}\n`;
+                                code.textContent += `\taddi ${nextRegister}, ${currentRegister}, ${operand}\n`;
+                                comments.textContent += `# ${operator} ${operand}\n`;
+                                mipsCodes[idx].push(`addi ${nextRegister}, ${currentRegister}, ${operand}`);
                             } else if (operator === "-") {
-                                textSegment += `    addi ${nextRegister}, ${currentRegister}, -${operand}  # ${operator} ${operand}\n`;
+                                code.textContent += `\taddi ${nextRegister}, ${currentRegister}, -${operand}\n`;
+                                comments.textContent += `# ${operator} ${operand}\n`;
+                                mipsCodes[idx].push(`addi ${nextRegister}, ${currentRegister}, -${operand}`);
+                            } else if (operator === "*") {
+                                code.textContent += `\tlw ${nextRegister}, ${operand}\n`;
+                                comments.textContent += `# Load ${operand}\n`;
+                                mipsCodes[idx].push(`lw ${nextRegister}, ${operand}`);
+                                
+                                code.textContent += `\tmul ${nextRegister}, ${currentRegister}, ${nextRegister}\n`;
+                                comments.textContent += `# Multiply ${operand}\n`;
+                                mipsCodes[idx].push(`mul ${nextRegister}, ${currentRegister}, ${nextRegister}`);
                             }
                         } else if (dataSegment.hasOwnProperty(operand)) {
-                            textSegment += `    lw ${nextRegister}, ${operand}      # Load ${operand}\n`;
+                            code.textContent += `\tlw ${nextRegister}, ${operand}\n`;
+                            comments.textContent += `# Load ${operand}\n`;
+                            mipsCodes[idx].push(`lw ${nextRegister}, ${operand}`);
+
                             if (operator === "+") {
-                                textSegment += `    add ${nextRegister}, ${currentRegister}, ${nextRegister}      # ${operator} ${operand}\n`;
+                                code.textContent += `\tadd ${nextRegister}, ${currentRegister}, ${nextRegister}\n`;
+                                comments.textContent += `# Add ${operand}\n`;
+                                mipsCodes[idx].push(`add ${nextRegister}, ${currentRegister}, ${nextRegister}`);
                             } else if (operator === "-") {
-                                textSegment += `    sub ${nextRegister}, ${currentRegister}, ${nextRegister}      # ${operator} ${operand}\n`;
+                                code.textContent += `\tsub ${nextRegister}, ${currentRegister}, ${nextRegister}\n`;
+                                comments.textContent += `# Subtract ${operand}\n`;
+                                mipsCodes[idx].push(`sub ${nextRegister}, ${currentRegister}, ${nextRegister}`);
+                            } else if (operator === "*") {
+                                code.textContent += `\tmul ${nextRegister}, ${currentRegister}, ${nextRegister}\n`;
+                                comments.textContent += `# Multiply $   {operand}\n`;
+                                mipsCodes[idx].push(`mul ${nextRegister}, ${currentRegister}, ${nextRegister}`);
                             }
                         } else {
                             throw new Error(`${language}: Variable '${operand}' not declared.`);
                         }
                         currentRegister = nextRegister; // Update currentRegister for the next operation
                     }
-                    textSegment += `    sw ${currentRegister}, ${destVar}         # Store result in ${destVar}\n`;
+                    code.textContent += `\tsw ${currentRegister}, ${destVar}\n`;
+                    comments.textContent += `# Store result in ${destVar}\n`;
+                    mipsCodes[idx].push(`sw ${currentRegister}, ${destVar}`);
+                    divParent.appendChild(code);
+                    divParent.appendChild(comments);
+                    mipsContainer.appendChild(divParent);
                     return;
                 }
 
@@ -344,18 +456,43 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (!dataSegment.hasOwnProperty(varName)) {
                         throw new Error(`Python: Variable '${varName}' not defined before print.`);
                     }
-                    textSegment += `    lw $a0, ${varName}\n    li $v0, 1\n    syscall\n`;
-                    textSegment += `    la $a0, newline\n    li $v0, 4\n    syscall\n`;
+                    code.textContent += `\tlw $a0, ${varName}\n`;
+                    comments.textContent += `# Load ${varName} to print\n`;
+                    mipsCodes[idx].push(`lw $a0, ${varName}`);
+
+                    code.textContent += `\tli $v0, 1\n`;
+                    comments.textContent += "# Syscall for print_int\n";
+                    mipsCodes[idx].push(`li $v0, 1`);
+
+                    code.textContent += `\tsyscall\n`;
+                    comments.textContent += "# Execute print\n";
+                    mipsCodes[idx].push(`syscall`);
+
+                    code.textContent += `\tla $a0, newline\n`;
+                    comments.textContent += "# Load address of newline\n";
+                    mipsCodes[idx].push(`la $a0, newline`);
+
+                    code.textContent += `\tli $v0, 4\n`;
+                    comments.textContent += "# Syscall for print_string\n";
+                    mipsCodes[idx].push(`li $v0, 4`);
+
+                    code.textContent += `\tsyscall\n`;
+                    comments.textContent += "# Print newline\n";
+                    mipsCodes[idx].push(`syscall`);
+
+                    divParent.appendChild(code);
+                    divParent.appendChild(comments);
+                    mipsContainer.appendChild(divParent);
                     return;
                 }
-
-                // === Fallback: Unsupported ===
-                textSegment += `    # Unsupported Python line: ${line}\n`;
             } else {
                 console.log("language invalid");
             }
 
-            textSegment += `    # Unsupported ${language} line: ${line}\n`;
+            // === Fallback: Unsupported ===
+            code.textContent += `\t# Unsupported ${language} line: ${line}\n`;
+            divParent.appendChild(code);
+            mipsContainer.appendChild(divParent);
         })
 
         let finalDataSegmentContent = ".data\n";
@@ -370,10 +507,27 @@ document.addEventListener("DOMContentLoaded", () => {
         mipsContainer.insertBefore(codeHeader, mipsContainer.firstChild);
 
 
-        mipsCode += "\n    # Exit program\n";
-        mipsCode += "    li $v0, 10             # Syscall for exit\n";
-        mipsCode += "    syscall                # Execute exit\n";
-        return mipsCode;
+        const divFooter = document.createElement("div");
+        const codeFooter = document.createElement("code");
+        const codeFooterComments = document.createElement("code");
+
+        divFooter.className = "code-container exit";
+        divFooter.onmouseover = highlight;
+        divFooter.onmouseover = () => highlight(divFooter);
+        divFooter.onmouseout = () => removeHighlight(divFooter);
+
+        mipsCodes['exit'] = ['li $v0, 10', 'syscall'];
+
+        codeFooter.textContent += `\tli $v0, 10\n`;
+        codeFooterComments.textContent += `# Syscall for exit\n`;
+
+        codeFooter.textContent += `\tsyscall\n`;
+        codeFooterComments.textContent += `# Execute exit\n`;
+
+        divFooter.appendChild(codeFooter);
+        divFooter.appendChild(codeFooterComments);
+        mipsContainer.appendChild(divFooter);
+        return mipsCodes;
     }
 
 
@@ -397,198 +551,146 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function convertMipsToBinary(mipsCode) {
         console.log("Converting MIPS to Binary:");
-        let binaryRepresentation = "// Binary Representation (Simplified - Educational Purposes)\n";
-        const lines = mipsCode.split("\n");
-
-
         let currentAddress = 0x00400000;
         const labelAddresses = {};
         const dataLabelAddresses = {};
         let dataAddressCounter = 0x10010000;
-        // let inTextSegment = false;
-        // let inDataSegment = false;
-        // const lines = mipsCode.split("\n");
+
 
         let tempAddress = 0;
         Object.keys(mipsCode).map(key => {
-            const parentDiv = document.createElement("div");
-            parentDiv.className = "code-container";
-
-
             for (var i = 0; i < mipsCode[key].length; i++) {
                 const codeBinary = document.createElement("code");
-                console.log(mipsCode[key][i]);
-            }
+                codeBinary.className = `code-container ${key}`;
+                const originalLine = mipsCode[key][i].trim();
+                const line = mipsCode[key][i].trim();
 
+                const parts = line.replace(/,/g, "").split(/\s+/).filter(p => p);
+
+                if (parts.length === 0) {
+                    binaryRepresentation += `// ${originalLine}`;
+                    return;
+                }
+
+                const instruction = parts[0].toLowerCase();
+                const def = mipsToBinaryMap[instruction];
+                let binInstruction = "????????????????????????????????";
+                
+                if (def) {
+                    console.log(instruction)
+                    if (instruction === "syscall") {
+                        binInstruction = `${def.opcode}00000000000000000000${def.funct}`;
+                    } else if (def.funct) {
+                        const rd = registerToBinaryMap[parts[1]] || "00000";
+                        const rs = registerToBinaryMap[parts[2]] || "00000";
+                        const rt = registerToBinaryMap[parts[3]] || "00000";
+                        const shamt = "00000";
+                        binInstruction = `${def.opcode}${rs}${rt}${rd}${shamt}${def.funct};`
+                    } else if (instruction === "addi") {
+                        const rt = registerToBinaryMap[parts[1]] || "00000";
+                        const rs = registerToBinaryMap[parts[2]] || "00000";
+                        const immediate = parseInt(parts[3]);
+                        const immediate_bin = decToBinary(immediate & 0xFFFF, 16);
+                        binInstruction = `${def.opcode}${rs}${rt}${immediate_bin}`;
+                    } else if (instruction === "li") {
+                        const rt = registerToBinaryMap[parts[1]] || "00000";
+                        const imm = parseInt(parts[2]);
+                        if (imm >= -32768 && imm <= 65535) {
+                            const rs_zero = registerToBinaryMap["$zero"];
+                            binInstruction = `001001${rs_zero}${rt}${decToBinary(imm, 16)}`;
+                        } else {
+                            binInstruction = `complex_li_expansion_needed`;
+                        }
+                    } else if (instruction === "lw" || instruction === "sw") {
+                        const rt_reg = registerToBinaryMap[parts[1]] || "00000";
+                        let offset_bin = "0000000000000000";
+                        let rs_reg = "00000";
+                        const memPart = parts[2];
+                        const memMatch = memPart.match(/(\d+)?\(([\$\w]+)\)/);
+                        if (memMatch) {
+                            offset_bin = decToBinary(parseInt(memMatch[1] || "0"), 16);
+                            rs_reg = registerToBinaryMap[memMatch[2]] || "00000";
+                        } else {
+                            // if (dataLabelAddresses[memPart]) {
+                                const rt_reg = registerToBinaryMap[parts[1]] || "00000"; // The register being loaded/stored
+                                const rs_reg = registerToBinaryMap["$zero"]; // Base register is $zero for direct addressing of data labels
+                                const offset = dataLabelAddresses[memPart];
+                                const offset_bin = decToBinary(offset & 0xFFFF, 16); // Take lower 16 bits as offset
+
+                                binInstruction = `${def.opcode}${rs_reg}${rt_reg}${offset_bin}`;
+                            // } else {
+                                // binInstruction  = `unknown_label_for_load_store`;
+                            // }
+                        }
+                        if (codeBinary.textContent.startsWith("?")) codeBinary.textContent = `${def.opcode}${rs_reg}${rt_reg}${offset_bin}`;
+                    } else if (instruction === "la") { // Handle la pseudo-instruction
+                        const targetRegister = registerToBinaryMap[parts[1]] || "00000";
+                        const labelName = parts[2];
+                        let address = null;
+
+                        if (dataLabelAddresses[labelName] !== undefined) {
+                            address = dataLabelAddresses[labelName];
+                        } else if (labelAddresses[labelName] !== undefined) {
+                            address = labelAddresses[labelName];
+                        }
+
+                        if (address !== null) {
+                            const upper16Bits = (address >>> 16) & 0xFFFF;
+                            const lower16Bits = address & 0xFFFF;
+                            const opcode_lui = "001111"; // Opcode for LUI
+                            const opcode_ori = "001101"; // Opcode for ORI
+                            const rs_zero = registerToBinaryMap["$zero"];
+
+                            function toHex(decimal) {
+                                return '0x' + decimal.toString(16).padStart(8, '0');
+                            }
+
+
+                            if (upper16Bits !== 0) {
+                                codeBinary.textContent += `${toHex(currentAddress)}: ${opcode_lui}${rs_zero}${targetRegister}${decToBinary(upper16Bits, 16)} //     lui ${parts[1]}, ${upper16Bits}       # Load upper 16 bits of ${labelName} address\n`;
+                                currentAddress += 4;
+                            }
+                            binInstruction = `${opcode_ori}${targetRegister}${targetRegister}${decToBinary(lower16Bits, 16)}`;
+                        } else {
+                            binInstruction = `label_${labelName}_not_found`;
+                            codeBinary.textContent += `// WARN: Label ${labelName} not found for la\n`;
+                        }
+                    } else if (instruction === "beq" || instruction === "bne") {
+                        const rs_br = registerToBinaryMap[parts[1]] || "00000";
+                        const rt_br = registerToBinaryMap[parts[2]] || "00000";
+                        const labelName = parts[3];
+                        let relativeOffset = "????????????????";
+                        if (labelAddresses[labelName]) {
+                            const targetAddr = labelAddresses[labelName];
+                            const offsetVal = (targetAddr - (currentAddress + 4)) / 4;
+                            relativeOffset = decToBinary(offsetVal, 16);
+                        } else {
+                            codeBinary.textContent += `// WARN: Label ${labelName} not found for ${instruction}\n`;
+                        }
+                        binInstruction = `${def.opcode}${rs_br}${rt_br}${relativeOffset}`;
+                    } else if (instruction === "j" || instruction === "jal") {
+                        const labelName = parts[1];
+                        let target = "??????????????????????????";
+                        if (labelAddresses[labelName]) {
+                            const pseudoDirectAddress = (labelAddresses[labelName] & 0x0FFFFFFF) >> 2;
+                            target = decToBinary(pseudoDirectAddress, 26);
+                        } else {
+                            codeBinary.textContent += `// WARN: Label ${labelName} not found for ${instruction}\n`;
+                        }
+                        binInstruction = `${def.opcode}${target}`;
+                    } else {
+                        binInstruction = "unknown_instr_format";
+                    }
+                } else {
+                    binInstruction = "invalid_mips_instruction_name";
+                }
+                console.log(binInstruction);
+                codeBinary.textContent = `0x${currentAddress.toString(16)}: ${binInstruction}\n`;
+                console.log(codeBinary)
+                binaryContainer.appendChild(codeBinary);
+                currentAddress += 4;
+            } 
         })
-
-        // lines.forEach(line => {
-        //     let originalLine = line;
-        //     line = line.trim();
-        //     const commentIndex = line.indexOf("#");
-        //     if (commentIndex !== -1) {
-        //         line = line.substring(0, commentIndex).trim();
-        //     }
-
-        //     if (!line) {
-        //         binaryRepresentation += `// ${originalLine}\n`;
-        //         return;
-        //     }
-
-        //     if (line === ".data") {
-        //         inDataSegment = true; inTextSegment = false;
-        //         binaryRepresentation += `// ${originalLine}\n`;
-        //         currentAddress = dataAddressCounter;
-        //         return;
-        //     }
-        //     if (line === ".text") {
-        //         inTextSegment = true; inDataSegment = false;
-        //         binaryRepresentation += `// ${originalLine}\n`;
-        //         currentAddress = 0x00400000;
-        //         return;
-        //     }
-
-        //     if (line.endsWith(":")) {
-        //         binaryRepresentation += `// ${originalLine}\n`;
-        //         return;
-        //     }
-
-        //     if (inDataSegment) {
-        //         const parts = line.split(/\s+/);
-        //         const label = parts[0].slice(0, -1);
-        //         const directive = parts[1];
-        //         const value = parts.slice(2).join(" ");
-        //         binaryRepresentation += `0x${(dataLabelAddresses[label] || currentAddress).toString(16)}: Data (${directive} ${value}) // ${originalLine}\n`;
-        //         return;
-        //     }
-
-        //     if (!inTextSegment || line.startsWith(".")) {
-        //         binaryRepresentation += `// ${originalLine}\n`;
-        //         return;
-        //     }
-
-        //     const parts = line.replace(/,/g, " ").split(/\s+/).filter(p => p);
-        //     if (parts.length === 0) {
-        //         binaryRepresentation += `// ${originalLine}\n`;
-        //         return;
-        //     }
-        //     const instruction = parts[0].toLowerCase();
-        //     const def = mipsToBinaryMap[instruction];
-
-        //     let binInstruction = "????????????????????????????????";
-
-        //     if (def) {
-        //         if (instruction === "syscall") {
-        //             binInstruction = `${def.opcode}000000000000000000000${def.funct}`;
-        //         } else if (def.funct) {
-        //             const rd = registerToBinaryMap[parts[1]] || "00000";
-        //             const rs = registerToBinaryMap[parts[2]] || "00000";
-        //             const rt = registerToBinaryMap[parts[3]] || "00000";
-        //             const shamt = "00000";
-        //             binInstruction = `${def.opcode}${rs}${rt}${rd}${shamt}${def.funct}`;
-        //         } else if (instruction === "addi") {
-        //             const rt = registerToBinaryMap[parts[1]] || "00000";
-        //             const rs = registerToBinaryMap[parts[2]] || "00000";
-        //             const immediate = parseInt(parts[3]);
-        //             const immediate_bin = decToBinary(immediate & 0xFFFF, 16);
-        //             binInstruction = `${def.opcode}${rs}${rt}${immediate_bin}`;
-        //         } else if (instruction === "li") {
-        //             const rt = registerToBinaryMap[parts[1]] || "00000";
-        //             const imm = parseInt(parts[2]);
-        //             if (imm >= -32768 && imm <= 65535) {
-        //                 const rs_zero = registerToBinaryMap["$zero"];
-        //                 binInstruction = `001001${rs_zero}${rt}${decToBinary(imm, 16)}`;
-        //             } else {
-        //                 binInstruction = `complex_li_expansion_needed`;
-        //             }
-        //         } else if (instruction === "lw" || instruction === "sw") {
-        //             const rt_reg = registerToBinaryMap[parts[1]] || "00000";
-        //             let offset_bin = "0000000000000000";
-        //             let rs_reg = "00000";
-        //             const memPart = parts[2];
-        //             const memMatch = memPart.match(/(\d+)?\(([\$\w]+)\)/);
-        //             if (memMatch) {
-        //                 offset_bin = decToBinary(parseInt(memMatch[1] || "0"), 16);
-        //                 rs_reg = registerToBinaryMap[memMatch[2]] || "00000";
-        //             } else {
-        //                 if (dataLabelAddresses[memPart]) {
-        //                     const rt_reg = registerToBinaryMap[parts[1]] || "00000"; // The register being loaded/stored
-        //                     const rs_reg = registerToBinaryMap["$zero"]; // Base register is $zero for direct addressing of data labels
-        //                     const offset = dataLabelAddresses[memPart];
-        //                     const offset_bin = decToBinary(offset & 0xFFFF, 16); // Take lower 16 bits as offset
-
-        //                     binInstruction = `${def.opcode}${rs_reg}${rt_reg}${offset_bin}`;
-        //                 } else {
-        //                     binInstruction = `unknown_label_for_load_store`;
-        //                 }
-        //             }
-        //             if (binInstruction.startsWith("?")) binInstruction = `${def.opcode}${rs_reg}${rt_reg}${offset_bin}`;
-        //         } else if (instruction === "la") { // Handle la pseudo-instruction
-        //             const targetRegister = registerToBinaryMap[parts[1]] || "00000";
-        //             const labelName = parts[2];
-        //             let address = null;
-
-        //             if (dataLabelAddresses[labelName] !== undefined) {
-        //                 address = dataLabelAddresses[labelName];
-        //             } else if (labelAddresses[labelName] !== undefined) {
-        //                 address = labelAddresses[labelName];
-        //             }
-
-        //             if (address !== null) {
-        //                 const upper16Bits = (address >>> 16) & 0xFFFF;
-        //                 const lower16Bits = address & 0xFFFF;
-        //                 const opcode_lui = "001111"; // Opcode for LUI
-        //                 const opcode_ori = "001101"; // Opcode for ORI
-        //                 const rs_zero = registerToBinaryMap["$zero"];
-
-        //                 function toHex(decimal) {
-        //                     return '0x' + decimal.toString(16).padStart(8, '0');
-        //                 }
-
-
-        //                 if (upper16Bits !== 0) {
-        //                     binaryRepresentation += `${toHex(currentAddress)}: ${opcode_lui}${rs_zero}${targetRegister}${decToBinary(upper16Bits, 16)} //     lui ${parts[1]}, ${upper16Bits}       # Load upper 16 bits of ${labelName} address\n`;
-        //                     currentAddress += 4;
-        //                 }
-        //                 binInstruction = `${opcode_ori}${targetRegister}${targetRegister}${decToBinary(lower16Bits, 16)}`;
-        //             } else {
-        //                 binInstruction = `label_${labelName}_not_found`;
-        //                 binaryRepresentation += `// WARN: Label ${labelName} not found for la\n`;
-        //             }
-        //         } else if (instruction === "beq" || instruction === "bne") {
-        //             const rs_br = registerToBinaryMap[parts[1]] || "00000";
-        //             const rt_br = registerToBinaryMap[parts[2]] || "00000";
-        //             const labelName = parts[3];
-        //             let relativeOffset = "????????????????";
-        //             if (labelAddresses[labelName]) {
-        //                 const targetAddr = labelAddresses[labelName];
-        //                 const offsetVal = (targetAddr - (currentAddress + 4)) / 4;
-        //                 relativeOffset = decToBinary(offsetVal, 16);
-        //             } else {
-        //                 binaryRepresentation += `// WARN: Label ${labelName} not found for ${instruction}\n`;
-        //             }
-        //             binInstruction = `${def.opcode}${rs_br}${rt_br}${relativeOffset}`;
-        //         } else if (instruction === "j" || instruction === "jal") {
-        //             const labelName = parts[1];
-        //             let target = "??????????????????????????";
-        //             if (labelAddresses[labelName]) {
-        //                 const pseudoDirectAddress = (labelAddresses[labelName] & 0x0FFFFFFF) >> 2;
-        //                 target = decToBinary(pseudoDirectAddress, 26);
-        //             } else {
-        //                 binaryRepresentation += `// WARN: Label ${labelName} not found for ${instruction}\n`;
-        //             }
-        //             binInstruction = `${def.opcode}${target}`;
-        //         } else {
-        //             binInstruction = "unknown_instr_format";
-        //         }
-        //     } else {
-        //         binInstruction = "invalid_mips_instruction_name";
-        //     }
-        //     binaryRepresentation += `0x${currentAddress.toString(16)}: ${binInstruction} // ${originalLine}\n`;
-        //     currentAddress += 4;
-        // });
-
-        // return binaryRepresentation;
     }
 
     // Event listeners for copy buttons
