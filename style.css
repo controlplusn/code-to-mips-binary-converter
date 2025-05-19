@@ -322,7 +322,7 @@ code {
 	justify-content: space-between;
 }
 
-footer {
+.about-us {
 	display: flex;
 	flex-direction: column;
 	justify-content: center;
@@ -331,7 +331,7 @@ footer {
 	margin-bottom: var(--spacing-5);
 }
 
-.footer-title {
+.about-us>h2 {
 	font: var(--font-russo-700);
 }
 
