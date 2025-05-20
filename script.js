@@ -284,10 +284,15 @@ document.addEventListener("DOMContentLoaded", () => {
                                 comments.textContent += `# ${operator} with immediate value ${operand}\n`;
                                 mipsCodes[idx].push(`addi ${nextRegister}, ${currentRegister}, -${operand}`);    
                             } else if (operator === "*") {
-                                code.textContent += `\tlw ${nextRegister}, ${operand}\n`;
-                                comments.textContent += `# Load ${operand}\n`;
-                                mipsCodes[idx].push(`lw ${nextRegister}, ${operand}`);
-                                
+                                if (dataSegment[line[1]]) {
+                                    code.textContent += `\tlw ${nextRegister}, ${operand}\n`;
+                                    comments.textContent += `# Load ${operand}\n`;
+                                    mipsCodes[idx].push(`lw ${nextRegister}, ${operand}`);
+                                } else {
+                                    code.textContent += `\tli ${nextRegister}, ${operand}\n`;
+                                    comments.textContent += `# Load initial value\n`;
+                                    mipsCodes[idx].push(`li ${nextRegister}, ${operand}`);
+                                }
                                 code.textContent += `\tmul ${nextRegister}, ${currentRegister}, ${nextRegister}\n`;
                                 comments.textContent += `# Multiply ${operand}\n`;
                                 mipsCodes[idx].push(`mul ${nextRegister}, ${currentRegister}, ${nextRegister}`);
@@ -364,8 +369,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             } else if (language == "Python") {
                 // x = [num/var/expression]
-                match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_0-9\s+\-\*]+)/);
-
+                match = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_0-9\s+\-\*]+)$/);
                 if (match) {
                     const destVar = match[1];
                     const expression = match[2].trim();
@@ -409,10 +413,15 @@ document.addEventListener("DOMContentLoaded", () => {
                                 comments.textContent += `# ${operator} ${operand}\n`;
                                 mipsCodes[idx].push(`addi ${nextRegister}, ${currentRegister}, -${operand}`);
                             } else if (operator === "*") {
-                                code.textContent += `\tlw ${nextRegister}, ${operand}\n`;
-                                comments.textContent += `# Load ${operand}\n`;
-                                mipsCodes[idx].push(`lw ${nextRegister}, ${operand}`);
-                                
+                                if (dataSegment[line[1]]) {
+                                    code.textContent += `\tlw ${nextRegister}, ${operand}\n`;
+                                    comments.textContent += `# Load ${operand}\n`;
+                                    mipsCodes[idx].push(`lw ${nextRegister}, ${operand}`);
+                                } else {
+                                    code.textContent += `\tli ${nextRegister}, ${operand}\n`;
+                                    comments.textContent += `# Load initial value\n`;
+                                    mipsCodes[idx].push(`li ${nextRegister}, ${operand}`);
+                                }
                                 code.textContent += `\tmul ${nextRegister}, ${currentRegister}, ${nextRegister}\n`;
                                 comments.textContent += `# Multiply ${operand}\n`;
                                 mipsCodes[idx].push(`mul ${nextRegister}, ${currentRegister}, ${nextRegister}`);
@@ -432,7 +441,7 @@ document.addEventListener("DOMContentLoaded", () => {
                                 mipsCodes[idx].push(`sub ${nextRegister}, ${currentRegister}, ${nextRegister}`);
                             } else if (operator === "*") {
                                 code.textContent += `\tmul ${nextRegister}, ${currentRegister}, ${nextRegister}\n`;
-                                comments.textContent += `# Multiply $   {operand}\n`;
+                                comments.textContent += `# Multiply ${operand}\n`;
                                 mipsCodes[idx].push(`mul ${nextRegister}, ${currentRegister}, ${nextRegister}`);
                             }
                         } else {
@@ -487,9 +496,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             } else {
                 console.log("language invalid");
+                throw new Error(`${language}: Language invalid`)
             }
 
             // === Fallback: Unsupported ===
+            throw new Error(`${language}: # Unsupported ${language} line: ${line}`)
             code.textContent += `\t# Unsupported ${language} line: ${line}\n`;
             divParent.appendChild(code);
             mipsContainer.appendChild(divParent);
@@ -556,7 +567,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function convertMipsToBinary(mipsCode) {
-        console.log("Converting MIPS to Binary:");
         const labelAddresses = {};
         const dataLabelAddresses = {};
         let currentAddress = 0x00400000;
@@ -651,6 +661,7 @@ document.addEventListener("DOMContentLoaded", () => {
                             const rs_zero = registerToBinaryMap["$zero"];
                             binInstruction = `001001${rs_zero}${rt}${decToBinary(imm, 16)}`;
                         } else {
+                            throw new Error(`${language}: complex_li_expansion_needed`);
                             binInstruction = `complex_li_expansion_needed`;
                         }
                     } else if (instruction === "lw" || instruction === "sw") {
@@ -671,6 +682,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                                 binInstruction = `${def.opcode}${rs_reg}${rt_reg}${offset_bin}`;
                             } else {
+                                throw new Error(`${language}: unknown_label_for_load_store`);
                                 binInstruction  = `unknown_label_for_load_store`;
                             }
                         }
@@ -705,6 +717,7 @@ document.addEventListener("DOMContentLoaded", () => {
                             binInstruction = `${opcode_ori}${targetRegister}${targetRegister}${decToBinary(lower16Bits, 16)}`;
                         } else {
                             binInstruction = `label_${labelName}_not_found`;
+                            throw new Error(`${language}: label ${labelName} not found`);
                             codeBinary.textContent += `// WARN: Label ${labelName} not found for la\n`;
                         }
                     } else if (instruction === "beq" || instruction === "bne") {
@@ -717,6 +730,7 @@ document.addEventListener("DOMContentLoaded", () => {
                             const offsetVal = (targetAddr - (currentAddress + 4)) / 4;
                             relativeOffset = decToBinary(offsetVal, 16);
                         } else {
+                            throw new Error(`${language}: label ${labelName} not found`);
                             codeBinary.textContent += `// WARN: Label ${labelName} not found for ${instruction}\n`;
                         }
                         binInstruction = `${def.opcode}${rs_br}${rt_br}${relativeOffset}`;
@@ -727,13 +741,16 @@ document.addEventListener("DOMContentLoaded", () => {
                             const pseudoDirectAddress = (labelAddresses[labelName] & 0x0FFFFFFF) >> 2;
                             target = decToBinary(pseudoDirectAddress, 26);
                         } else {
+                            throw new Error(`${language}: label ${labelName} not found`);
                             codeBinary.textContent += `// WARN: Label ${labelName} not found for ${instruction}\n`;
                         }
                         binInstruction = `${def.opcode}${target}`;
                     } else {
+                        throw new Error(`${language}: unknown_instr_format`);
                         binInstruction = "unknown_instr_format";
                     }
                 } else {
+                    throw new Error(`${language}: invalid_mips_instruction_name`);
                     binInstruction = "invalid_mips_instruction_name";
                 }
                 codeBinary.textContent = `0x${currentAddress.toString(16)}: ${binInstruction}\n`;
