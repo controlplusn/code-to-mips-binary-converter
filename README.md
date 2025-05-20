@@ -29,13 +29,13 @@
 <h2 id="preview">🖼️ User Interface Preview</h2>
 Take a look at the interface of the Code to MIPS & Binary Converter:
 
-![UI](https://github.com/controlplusn/code-to-mips-binary-converter/blob/main/images/ui-screenshot.jpg?raw=true)
+![UI](https://github.com/controlplusn/code-to-mips-binary-converter/blob/main/images/home.png?raw=true)
 
 
 <h3 id="example-preview">🖼️ Example Code Preview</h3>
 Take a look at this example input and output:
 
-![Example](https://github.com/controlplusn/code-to-mips-binary-converter/blob/main/images/example-input.png?raw=true)
+![Example](https://github.com/controlplusn/code-to-mips-binary-converter/blob/main/images/example.png?raw=true)
 
 <!-- FEATURES --> 
 <h2 id="features">🚀 Key Features</h2> 
