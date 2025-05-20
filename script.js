@@ -496,14 +496,20 @@ document.addEventListener("DOMContentLoaded", () => {
         })
 
         let finalDataSegmentContent = ".data\n";
+        mipsCodes['header'] = ['.data'];
         for (const varName in dataSegment) {
             finalDataSegmentContent += `${varName}: ${dataSegment[varName]}\n`;
+            mipsCodes["header"].push(`${varName}: ${dataSegment[varName]}`);
         }
 
         const codeHeader = document.createElement("code");
         codeHeader.className = "codeHeader";
         codeHeader.textContent += finalDataSegmentContent;
         codeHeader.textContent += "\n.text\n.globl main\nmain:\n";
+        mipsCodes["header"].push(".text");
+        mipsCodes["header"].push(".globl main");
+        mipsCodes["header"].push("main:");
+
         mipsContainer.insertBefore(codeHeader, mipsContainer.firstChild);
 
 
@@ -551,14 +557,61 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function convertMipsToBinary(mipsCode) {
         console.log("Converting MIPS to Binary:");
-        let currentAddress = 0x00400000;
         const labelAddresses = {};
         const dataLabelAddresses = {};
+        let currentAddress = 0x00400000;
         let dataAddressCounter = 0x10010000;
-
+        let inTextSegment = false;
+        let inDataSegment = false;
 
         let tempAddress = 0;
+
+        for (var i = 0; i < mipsCode["header"].length; i++) {
+            const line = mipsCode["header"][i].trim();
+            if (!line) return;
+            if (line === ".data") { inDataSegment = true; inTextSegment = false; tempAddress = dataAddressCounter; continue; }
+            if (line === ".text") { inTextSegment = true; inDataSegment = false; tempAddress = currentAddress; continue; }
+
+            if (line.endsWith(":")) {
+                const label = line.slice(0, -1);
+                if (inTextSegment) {
+                    labelAddresses[label] = tempAddress;
+                } else if (inDataSegment) {
+                    dataLabelAddresses[label] = tempAddress;
+                }
+            } else if (inTextSegment && !line.startsWith(".")) {
+                const parts = line.replace(/,/g, " ").split(/\s+/).filter(p => p);
+                if (parts.length > 0 && mipsToBinaryMap[parts[0].toLowerCase()]) {
+                    tempAddress += 4;
+                }
+            } else if (inDataSegment) {
+                const parts = line.split(/\s+/);
+                const labelMatch = parts[0].match(/^(\w+):$/);
+                let label = null;
+                let directiveIndex = 0;
+                if (labelMatch) {
+                    label = labelMatch[1];
+                    dataLabelAddresses[label] = tempAddress;
+                    directiveIndex = 1;
+                }
+                const directive = parts[directiveIndex];
+                if (directive === ".word") {
+                    tempAddress += 4 * (parts.length - 1 - directiveIndex);
+                } else if (directive === ".asciiz") {
+                    const str = parts.slice(directiveIndex + 1).join(" ").slice(1, -1);
+                    tempAddress += (str.replace(/\\n/g, "\n").length + 1);
+                    if (tempAddress % 4 !== 0) tempAddress = tempAddress + (4 - (tempAddress % 4));
+                }
+            }
+        }
+
+        inTextSegment = false;
+        inDataSegment = false;
+        currentAddress = 0x00400000;
+        dataAddressCounter = 0x10010000;
+
         Object.keys(mipsCode).map(key => {
+            if (key === "header") return;
             for (var i = 0; i < mipsCode[key].length; i++) {
                 const codeBinary = document.createElement("code");
                 codeBinary.className = `code-container ${key}`;
@@ -577,7 +630,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 let binInstruction = "????????????????????????????????";
                 
                 if (def) {
-                    console.log(instruction)
                     if (instruction === "syscall") {
                         binInstruction = `${def.opcode}00000000000000000000${def.funct}`;
                     } else if (def.funct) {
@@ -585,7 +637,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         const rs = registerToBinaryMap[parts[2]] || "00000";
                         const rt = registerToBinaryMap[parts[3]] || "00000";
                         const shamt = "00000";
-                        binInstruction = `${def.opcode}${rs}${rt}${rd}${shamt}${def.funct};`
+                        binInstruction = `${def.opcode}${rs}${rt}${rd}${shamt}${def.funct}`
                     } else if (instruction === "addi") {
                         const rt = registerToBinaryMap[parts[1]] || "00000";
                         const rs = registerToBinaryMap[parts[2]] || "00000";
@@ -611,16 +663,16 @@ document.addEventListener("DOMContentLoaded", () => {
                             offset_bin = decToBinary(parseInt(memMatch[1] || "0"), 16);
                             rs_reg = registerToBinaryMap[memMatch[2]] || "00000";
                         } else {
-                            // if (dataLabelAddresses[memPart]) {
+                            if (dataLabelAddresses[memPart]) {
                                 const rt_reg = registerToBinaryMap[parts[1]] || "00000"; // The register being loaded/stored
                                 const rs_reg = registerToBinaryMap["$zero"]; // Base register is $zero for direct addressing of data labels
                                 const offset = dataLabelAddresses[memPart];
                                 const offset_bin = decToBinary(offset & 0xFFFF, 16); // Take lower 16 bits as offset
 
                                 binInstruction = `${def.opcode}${rs_reg}${rt_reg}${offset_bin}`;
-                            // } else {
-                                // binInstruction  = `unknown_label_for_load_store`;
-                            // }
+                            } else {
+                                binInstruction  = `unknown_label_for_load_store`;
+                            }
                         }
                         if (codeBinary.textContent.startsWith("?")) codeBinary.textContent = `${def.opcode}${rs_reg}${rt_reg}${offset_bin}`;
                     } else if (instruction === "la") { // Handle la pseudo-instruction
@@ -684,9 +736,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 } else {
                     binInstruction = "invalid_mips_instruction_name";
                 }
-                console.log(binInstruction);
                 codeBinary.textContent = `0x${currentAddress.toString(16)}: ${binInstruction}\n`;
-                console.log(codeBinary)
                 binaryContainer.appendChild(codeBinary);
                 currentAddress += 4;
             } 
