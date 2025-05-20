@@ -319,7 +319,7 @@ code {
 
 .code-container {
 	display: flex;
-    cursor: pointer;
+	cursor: pointer;
 	justify-content: space-between;
 }
 
@@ -389,12 +389,29 @@ code {
 	border-bottom-left-radius: 22px;
 }
 
-.profile-image {
+.ziac .profile-image {
 	background-image: url(images/ziac.jpg);
 }
 
 .timothy .profile-image {
 	background-image: url(images/timothy.png);
+}
+
+.carle .profile-image {
+	background-image: url(images/carle.png);
+}
+
+.hersey .profile-image {
+	background-image: url(images/hersey.jpg);
+	filter: saturate(120%) contrast(120%) brightness(70%);
+}
+
+.dorothy .profile-image {
+	background-image: url(images/ziac.jpg);
+}
+
+.vex .profile-image {
+	background-image: url(images/ziac.jpg);
 }
 
 .profile-wrapper {
